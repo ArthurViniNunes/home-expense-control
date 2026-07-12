@@ -6,7 +6,7 @@ O projeto está sendo desenvolvido de forma incremental. Cada commit do Git repr
 
 ## Status do projeto
 
-Etapa atual: estrutura inicial do projeto e documentação técnica.
+Etapa atual: Implementação da funcionalidade de cadastro, listagem e exclusão de pessoas.
 
 As funcionalidades de negócio serão implementadas nos próximos commits.
 
@@ -31,7 +31,7 @@ A aplicação permitirá:
 - C#
 - Entity Framework Core
 - SQLite
-- OpenAPI
+- OpenAPI com Scalar
 - xUnit
 
 ### Front-end

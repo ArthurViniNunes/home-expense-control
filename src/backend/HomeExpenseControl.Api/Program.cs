@@ -1,5 +1,7 @@
 using HomeExpenseControl.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
+using HomeExpenseControl.Api.Features.People;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,12 +23,19 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
+builder.Services.AddScoped<PeopleService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    app.MapScalarApiReference(options =>
+    {
+        options.WithTitle("Controle de Gastos Residenciais");
+    });
 }
 
 app.UseHttpsRedirection();
