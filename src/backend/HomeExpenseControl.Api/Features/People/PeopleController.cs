@@ -140,4 +140,59 @@ public sealed class PeopleController : ControllerBase
 
         return Ok(person);
     }
+
+    /// <summary>
+    /// Exclui uma pessoa cadastrada.
+    /// </summary>
+    /// <remarks>
+    /// A exclusão é definitiva.
+    ///
+    /// Quando o relacionamento com transações estiver disponível, todas as
+    /// transações vinculadas à pessoa também serão excluídas automaticamente.
+    /// </remarks>
+    /// <param name="id" example="1">
+    /// Identificador da pessoa que será excluída.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Token utilizado para cancelar a operação.
+    /// </param>
+    /// <response code="204">
+    /// Pessoa excluída com sucesso.
+    /// </response>
+    /// <response code="400">
+    /// O identificador informado é inválido.
+    /// </response>
+    /// <response code="404">
+    /// Não existe uma pessoa com o identificador informado.
+    /// </response>
+    [HttpDelete("{id:int}")]
+    [EndpointName("DeletePerson")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        [FromRoute, Range(1, int.MaxValue)] int id,
+        CancellationToken cancellationToken)
+    {
+        var deleted = await _peopleService.DeleteAsync(
+            id,
+            cancellationToken);
+
+        if (!deleted)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "Pessoa não encontrada",
+                Detail =
+                    $"Não existe uma pessoa cadastrada com o identificador {id}.",
+                Status = StatusCodes.Status404NotFound
+            });
+        }
+
+        return NoContent();
+    }
 }

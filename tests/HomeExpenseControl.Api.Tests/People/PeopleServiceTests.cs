@@ -140,4 +140,44 @@ public sealed class PeopleServiceTests
 
         return context;
     }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldRemovePerson_WhenPersonExists()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var person = new Person("Arthur Nunes", 22);
+
+        context.People.Add(person);
+        await context.SaveChangesAsync();
+
+        var service = new PeopleService(context);
+
+        var result = await service.DeleteAsync(
+            person.Id,
+            CancellationToken.None);
+
+        var personStillExists = await context.People
+            .AnyAsync(existingPerson => existingPerson.Id == person.Id);
+
+        Assert.True(result);
+        Assert.False(personStillExists);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenPersonDoesNotExist()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var service = new PeopleService(context);
+
+        var result = await service.DeleteAsync(
+            999,
+            CancellationToken.None);
+
+        Assert.False(result);
+        Assert.Empty(await context.People.ToListAsync());
+    }
 }

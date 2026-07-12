@@ -80,4 +80,25 @@ public sealed class PeopleService
             person.Age,
             person.IsMinor);
     }
+
+    public async Task<bool> DeleteAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var person = await _dbContext.People
+            .SingleOrDefaultAsync(
+                person => person.Id == id,
+                cancellationToken);
+
+        if (person is null)
+        {
+            return false;
+        }
+
+        _dbContext.People.Remove(person);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
 }
