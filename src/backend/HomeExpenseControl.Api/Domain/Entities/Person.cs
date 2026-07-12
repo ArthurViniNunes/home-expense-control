@@ -26,6 +26,9 @@ public sealed class Person
 
     public bool IsMinor => Age < 18;
 
+    public ICollection<Transaction> Transactions { get; private set; } =
+    new List<Transaction>();
+
     private static string ValidateAndNormalizeName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))

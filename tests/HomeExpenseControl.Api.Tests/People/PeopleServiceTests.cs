@@ -2,6 +2,7 @@ using HomeExpenseControl.Api.Domain.Entities;
 using HomeExpenseControl.Api.Features.People;
 using HomeExpenseControl.Api.Features.People.Contracts;
 using HomeExpenseControl.Api.Infrastructure.Persistence;
+using HomeExpenseControl.Api.Domain.Enums;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -179,5 +180,48 @@ public sealed class PeopleServiceTests
 
         Assert.False(result);
         Assert.Empty(await context.People.ToListAsync());
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldDeletePersonTransactions_WhenPersonExists()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var person = new Person("Arthur Nunes", 22);
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            150m,
+            TransactionType.Expense,
+            person);
+
+        context.People.Add(person);
+        context.Transactions.Add(transaction);
+
+        await context.SaveChangesAsync();
+
+        var personId = person.Id;
+        var transactionId = transaction.Id;
+
+        // Limpa as entidades rastreadas para garantir que a exclusão seja
+        // executada pela configuração de cascata do banco de dados.
+        context.ChangeTracker.Clear();
+
+        var service = new PeopleService(context);
+
+        var result = await service.DeleteAsync(
+            personId,
+            CancellationToken.None);
+
+        var personExists = await context.People
+            .AnyAsync(item => item.Id == personId);
+
+        var transactionExists = await context.Transactions
+            .AnyAsync(item => item.Id == transactionId);
+
+        Assert.True(result);
+        Assert.False(personExists);
+        Assert.False(transactionExists);
     }
 }
