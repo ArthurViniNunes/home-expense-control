@@ -1,3 +1,4 @@
+using HomeExpenseControl.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace HomeExpenseControl.Api.Infrastructure.Persistence;
@@ -11,6 +12,8 @@ public sealed class AppDbContext : DbContext
         : base(options)
     {
     }
+
+    public DbSet<Person> People => Set<Person>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
