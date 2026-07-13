@@ -90,4 +90,35 @@ public sealed class OpenApiContractTests
             ["expense", "income"],
             allowedValues);
     }
+
+    [Fact]
+    public async Task OpenApi_ShouldDocumentTotalsEndpoint()
+    {
+        using var response = await _client.GetAsync(
+            "/openapi/v1.json");
+
+        response.EnsureSuccessStatusCode();
+
+        await using var stream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        var totalsOperation = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/totals")
+            .GetProperty("get");
+
+        Assert.Equal(
+            "GetTotals",
+            totalsOperation
+                .GetProperty("operationId")
+                .GetString());
+
+        Assert.True(
+            totalsOperation
+                .GetProperty("responses")
+                .TryGetProperty("200", out _));
+    }
 }

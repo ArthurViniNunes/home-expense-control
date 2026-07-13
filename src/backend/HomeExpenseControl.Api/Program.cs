@@ -6,6 +6,7 @@ using HomeExpenseControl.Api.Features.People;
 using HomeExpenseControl.Api.Common.Errors;
 using HomeExpenseControl.Api.Features.Transactions;
 using HomeExpenseControl.Api.Common.OpenApi;
+using HomeExpenseControl.Api.Features.Totals;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +68,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<PeopleService>();
 builder.Services.AddScoped<TransactionsService>();
+builder.Services.AddScoped<TotalsService>();
 
 var app = builder.Build();
 
