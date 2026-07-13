@@ -6,6 +6,7 @@ namespace HomeExpenseControl.Api.Domain.Entities;
 public sealed class Person
 {
     public const int MaxNameLength = 120;
+    public const int MinNameLength = 2;
 
     // Construtor exigido pelo Entity Framework Core.
     private Person()
@@ -39,6 +40,13 @@ public sealed class Person
         }
 
         var normalizedName = name.Trim();
+
+        if (normalizedName.Length < MinNameLength)
+        {
+            throw new ArgumentException(
+                $"O nome deve possuir no mínimo {MinNameLength} caracteres.",
+                nameof(name));
+        }
 
         if (normalizedName.Length > MaxNameLength)
         {

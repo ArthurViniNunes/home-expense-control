@@ -54,6 +54,19 @@ public sealed class PeopleTests
     }
 
     [Fact]
+    public void Constructor_ShouldThrowArgumentException_WhenNameisLessThanMinLength()
+    {
+        var invalidName = new string('A', Person.MinNameLength - 1);
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => new Person(invalidName, 20));
+
+        Assert.Contains(
+            Person.MinNameLength.ToString(),
+            exception.Message);
+    }
+
+    [Fact]
     public void Constructor_ShouldThrowArgumentOutOfRangeException_WhenAgeIsNegative()
     {
         var exception = Assert.Throws<ArgumentOutOfRangeException>(
