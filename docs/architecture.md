@@ -1,275 +1,416 @@
 # Arquitetura
 
-## Visão geral
+## 1. Visão geral
 
-O Controle de Gastos Residenciais é uma aplicação full stack composta por:
+O **Controle de Gastos Residenciais** é uma aplicação full stack para cadastro de pessoas, registro de receitas e despesas e consulta de totais financeiros.
 
-- Uma API desenvolvida com ASP.NET Core.
-- Uma aplicação React escrita em TypeScript.
-- Um banco de dados SQLite.
-- Testes automatizados para o back-end.
+O projeto está sendo desenvolvido de forma incremental. Cada commit representa uma evolução pequena e compreensível do produto, permitindo acompanhar as decisões técnicas e funcionais pelo histórico do Git.
 
-O projeto utiliza uma abordagem de monólito modular.
+No estado atual, o back-end está implementado com:
 
-Essa estrutura permite separar claramente as responsabilidades sem introduzir complexidade desnecessária para o tamanho atual da aplicação.
+- .NET 10 e ASP.NET Core Web API;
+- Entity Framework Core;
+- SQLite;
+- OpenAPI nativo do ASP.NET Core;
+- Scalar para visualização e teste da API;
+- xUnit;
+- testes com SQLite em memória;
+- testes de contrato do documento OpenAPI.
 
-## Objetivos arquiteturais
+O front-end será desenvolvido com React e TypeScript após a consolidação do back-end.
+
+## 2. Objetivos arquiteturais
 
 A arquitetura foi definida para:
 
-- Facilitar a localização das regras de negócio.
-- Manter os controllers pequenos.
-- Separar os contratos da API das entidades de persistência.
-- Tornar o código compreensível para novos desenvolvedores.
-- Permitir que cada funcionalidade evolua de forma independente.
-- Manter a aplicação simples para o escopo atual.
-- Facilitar os testes automatizados das regras mais importantes.
+- manter as regras de negócio fáceis de localizar;
+- manter os controllers focados em responsabilidades HTTP;
+- separar contratos públicos das entidades internas;
+- proteger o domínio contra estados inválidos;
+- centralizar comportamentos compartilhados;
+- permitir que cada funcionalidade evolua de forma independente;
+- facilitar testes unitários, de integração e de contrato;
+- evitar abstrações que não agregariam valor ao escopo atual.
 
-## Organização do back-end
+## 3. Abordagem adotada
 
-O back-end será organizado por funcionalidade.
+O back-end utiliza uma abordagem de **monólito modular organizado por funcionalidade**.
+
+Essa escolha oferece separação de responsabilidades sem introduzir a complexidade de múltiplos projetos, microsserviços, barramentos de eventos ou frameworks de mediação.
 
 ```text
 HomeExpenseControl.Api/
 ├── Common/
+│   ├── Errors/
+│   ├── Money/
+│   ├── OpenApi/
+│   └── Serialization/
 ├── Domain/
+│   ├── Entities/
+│   └── Enums/
 ├── Features/
 │   ├── People/
+│   │   ├── Contracts/
+│   │   ├── PeopleController.cs
+│   │   └── PeopleService.cs
 │   ├── Transactions/
+│   │   ├── Contracts/
+│   │   ├── TransactionsController.cs
+│   │   └── TransactionsService.cs
 │   └── Totals/
+│       ├── Contracts/
+│       ├── TotalsController.cs
+│       └── TotalsService.cs
 ├── Infrastructure/
 │   └── Persistence/
+│       ├── Configurations/
+│       ├── Migrations/
+│       └── AppDbContext.cs
 └── Program.cs
 ```
 
-### Common
+## 4. Responsabilidades por área
 
-Contém comportamentos compartilhados entre diferentes funcionalidades, como:
+### 4.1 Common
 
-- Tratamento de erros.
-- Conversão de valores monetários.
-- Métodos de extensão.
-- Exceções compartilhadas pela aplicação.
+Contém comportamentos compartilhados por mais de uma funcionalidade.
 
-Um componente deve ser colocado nessa pasta apenas quando for realmente utilizado por mais de uma funcionalidade.
+Atualmente inclui:
 
-### Domain
+- exceções da aplicação;
+- tratamento centralizado de exceções;
+- conversão de valores monetários;
+- convenções para o documento OpenAPI;
+- serialização do tipo de transação.
 
-Contém os principais conceitos de negócio:
+Um componente só deve ser colocado nessa área quando possuir reutilização real.
 
-- Pessoa.
-- Transação.
-- Tipo de transação.
+### 4.2 Domain
 
-As entidades de domínio devem proteger o próprio estado válido sempre que possível.
+Contém os conceitos centrais de negócio:
 
-Setters públicos devem ser evitados quando permitirem a criação de objetos inválidos.
+- `Person`;
+- `Transaction`;
+- `TransactionType`.
 
-### Features
+As entidades possuem setters privados e validam os dados necessários para impedir a criação de estados inválidos.
 
-Cada funcionalidade contém os elementos necessários para uma capacidade específica do sistema.
+Exemplos de regras protegidas no domínio:
 
-Exemplo:
+- nome obrigatório;
+- idade não negativa;
+- descrição obrigatória;
+- valor positivo;
+- limite de duas casas decimais;
+- tipo de transação válido;
+- proibição de receitas para menores de idade.
 
-```text
-Features/
-├── People/
-│   ├── Contracts/
-│   ├── PeopleController.cs
-│   └── PeopleService.cs
-├── Transactions/
-│   ├── Contracts/
-│   ├── TransactionsController.cs
-│   └── TransactionsService.cs
-└── Totals/
-    ├── Contracts/
-    ├── TotalsController.cs
-    └── TotalsService.cs
-```
+### 4.3 Features
 
-Os controllers são responsáveis por:
+Cada pasta representa uma capacidade da aplicação.
 
-- Receber requisições HTTP.
-- Validar o formato da requisição.
-- Chamar o serviço apropriado.
-- Retornar a resposta HTTP correta.
+#### People
 
-Os services são responsáveis por:
+Responsável por:
 
-- Coordenar os casos de uso.
-- Carregar os dados necessários.
-- Aplicar regras que dependem de mais de uma entidade.
-- Persistir alterações.
-- Produzir os modelos de resposta.
+- cadastrar pessoas;
+- listar pessoas;
+- consultar uma pessoa pelo identificador;
+- excluir pessoas.
 
-### Infrastructure
+#### Transactions
 
-Contém detalhes de implementação relacionados a recursos externos.
+Responsável por:
 
-A camada de persistência conterá:
+- cadastrar transações;
+- listar transações;
+- consultar uma transação pelo identificador;
+- verificar a existência da pessoa vinculada;
+- aplicar a restrição de receita para menores de idade.
 
-- O contexto do Entity Framework Core.
-- As configurações das entidades.
-- As migrations do banco de dados.
-- A configuração do SQLite.
+#### Totals
 
-As regras de negócio não devem depender diretamente de comportamentos específicos do SQLite.
+Responsável por:
 
-## Organização do front-end
+- calcular receitas, despesas e saldo de cada pessoa;
+- incluir pessoas sem transações;
+- calcular receitas, despesas e saldo líquido gerais.
 
-O front-end também será organizado por funcionalidade.
+### 4.4 Infrastructure
 
-```text
-src/
-├── components/
-├── features/
-│   ├── people/
-│   ├── transactions/
-│   └── totals/
-├── layouts/
-├── services/
-├── types/
-└── App.tsx
-```
+Contém os detalhes de persistência:
 
-### Components
+- `AppDbContext`;
+- configurações das entidades;
+- migrations;
+- configuração do SQLite.
 
-Contém componentes reutilizáveis da interface que não pertencem exclusivamente a uma funcionalidade.
+As regras de negócio não devem depender diretamente de detalhes específicos do banco.
 
-### Features
+## 5. Convenção de nomenclatura
 
-Contém páginas, formulários, hooks e componentes relacionados a uma funcionalidade específica.
+A nomenclatura distingue registros individuais de coleções e funcionalidades.
 
-O código específico de uma funcionalidade deve permanecer dentro de sua própria pasta, exceto quando houver reutilização real.
+| Contexto | Nome |
+|---|---|
+| Entidade individual | `Person` |
+| Contrato individual | `PersonResponse` |
+| Requisição individual | `CreatePersonRequest` |
+| Funcionalidade | `People` |
+| Controller | `PeopleController` |
+| Serviço | `PeopleService` |
+| Coleção do contexto | `People` |
+| Tabela | `People` |
+| Rota REST | `/api/people` |
 
-### Services
+A mesma lógica é aplicada a transações:
 
-Contém a comunicação com a API.
+- `Transaction` para uma transação;
+- `Transactions` para coleção, funcionalidade, controller e rota.
 
-As requisições HTTP não devem ficar espalhadas diretamente pelos componentes de apresentação.
+## 6. Persistência
 
-### Types
+O SQLite garante que os dados permaneçam disponíveis após o encerramento da aplicação.
 
-Contém contratos TypeScript compartilhados entre diferentes funcionalidades.
+As migrations do Entity Framework Core são versionadas para permitir a reprodução da estrutura do banco.
 
-## Persistência
+O arquivo físico do banco não é versionado.
 
-O SQLite será utilizado para garantir que os dados permaneçam disponíveis após o encerramento da aplicação.
-
-As migrations do Entity Framework Core serão versionadas no repositório para permitir a reprodução da estrutura do banco.
-
-O arquivo físico do banco de dados não deve ser versionado.
-
-## Valores monetários
-
-Valores monetários não devem ser representados por tipos binários de ponto flutuante.
-
-A API receberá e retornará valores monetários como números decimais.
-
-Internamente, os valores poderão ser armazenados como centavos inteiros para:
-
-- Preservar valores exatos.
-- Simplificar agregações.
-- Evitar limitações do SQLite com operações decimais.
-- Evitar erros de arredondamento.
-
-Exemplo:
-
-```text
-R$ 125,90 = 12.590 centavos
-```
-
-A conversão entre valores decimais e centavos deve ficar centralizada em um único componente.
-
-## Relacionamentos
+### Relacionamento
 
 Uma pessoa pode possuir nenhuma ou várias transações.
 
 Cada transação pertence obrigatoriamente a uma pessoa.
 
 ```text
-Pessoa 1 ──────── 0..N Transação
+Person 1 ──────── 0..N Transaction
 ```
 
-Ao excluir uma pessoa, todas as suas transações também devem ser excluídas.
+A chave estrangeira fica em `Transaction.PersonId`.
 
-Esse comportamento será configurado como exclusão em cascata na camada de persistência.
+A exclusão de uma pessoa está configurada com `DeleteBehavior.Cascade`, removendo automaticamente suas transações.
 
-## Contratos da API
+## 7. Valores monetários
 
-As entidades de persistência não devem ser retornadas diretamente pelos controllers.
+A API recebe e retorna valores monetários como números decimais.
 
-Serão utilizados contratos de entrada e saída para:
+Internamente, os valores são persistidos em centavos inteiros:
 
-* Proteger o modelo interno.
-* Controlar o formato público da API.
-* Evitar a serialização acidental de propriedades de navegação.
-* Permitir alterações internas sem quebrar os consumidores da API.
+```text
+R$ 125,90 = 12.590 centavos
+```
 
-## Tratamento de erros
+A entidade `Transaction` armazena `AmountInCents`, e a conversão é centralizada no `MoneyConverter`.
 
-A API utilizará uma representação padronizada de erros baseada em `ProblemDetails`.
+Essa decisão:
 
-As principais categorias serão:
+- preserva valores exatos;
+- evita operações monetárias com ponto flutuante;
+- simplifica agregações;
+- evita limitações do SQLite com operações decimais;
+- mantém os cálculos de totais consistentes.
 
-* Dados de entrada inválidos.
-* Recurso não encontrado.
-* Violação de regra de negócio.
-* Erro inesperado no servidor.
+O banco também possui restrição para impedir valores iguais ou inferiores a zero.
 
-Informações internas detalhadas de exceções não devem ser expostas ao cliente.
+## 8. Contratos da API
 
-## Estratégia de testes
+As entidades de domínio não são retornadas diretamente pelos controllers.
 
-Os testes automatizados priorizarão comportamentos com impacto direto nas regras de negócio.
+A API utiliza contratos específicos de entrada e saída para:
 
-Os principais cenários são:
+- controlar o formato público;
+- evitar serialização de propriedades de navegação;
+- impedir acoplamento entre persistência e cliente;
+- documentar cada operação;
+- permitir mudanças internas sem quebrar o consumidor.
 
-* Criar uma pessoa válida.
-* Rejeitar dados inválidos de uma pessoa.
-* Excluir uma pessoa e suas transações.
-* Criar receitas e despesas válidas.
-* Impedir o cadastro de receitas para menores de idade.
-* Rejeitar transações vinculadas a pessoas inexistentes.
-* Calcular os totais de cada pessoa.
-* Calcular os totais gerais.
-* Tratar pessoas sem transações.
+Os campos obrigatórios utilizam tipos não anuláveis e validações explícitas.
 
-Os nomes dos testes devem descrever:
+## 9. Convenções JSON
 
-* O cenário.
-* A ação executada.
-* O resultado esperado.
+A API utiliza as seguintes convenções:
 
-## Comentários e documentação
+- números devem ser enviados como números JSON;
+- números enviados como texto são rejeitados;
+- o tipo de transação é representado como string;
+- valores numéricos do enum não são aceitos.
 
-O código deve ser compreendido principalmente por meio de:
+Valores aceitos:
 
-* Nomes claros.
-* Métodos pequenos.
-* Contratos explícitos.
-* Classes com responsabilidades bem definidas.
-* Testes descritivos.
+```json
+{ "type": "expense" }
+```
 
-Os comentários devem explicar:
+```json
+{ "type": "income" }
+```
 
-* Decisões arquiteturais.
-* Motivos relacionados ao negócio.
-* Limitações técnicas não óbvias.
-* Comportamentos que poderiam ser interpretados incorretamente.
+Valor rejeitado:
 
-Os comentários não devem apenas repetir o que o código já demonstra.
+```json
+{ "type": 1 }
+```
 
-## Complexidades evitadas
+## 10. Tratamento de erros
 
-A versão inicial não utilizará:
+O tratamento de exceções é centralizado, e as respostas seguem o padrão `ProblemDetails`.
 
-* Repositórios genéricos.
-* Abstração de Unit of Work sobre o Entity Framework Core.
-* Vários projetos de aplicação sem necessidade concreta.
-- Barramento de eventos.
-- Frameworks CQRS.
-- Frameworks de mapeamento baseados em reflexão.
-- Autenticação e autorização.
+| Situação | Status |
+|---|---:|
+| Dados ou formato inválido | `400 Bad Request` |
+| Recurso inexistente | `404 Not Found` |
+| Violação de regra de negócio | `422 Unprocessable Entity` |
+| Erro inesperado | `500 Internal Server Error` |
 
-Essas decisões poderão ser revistas somente quando houver um requisito real que justifique a complexidade adicional.
+Exceções internas e stack traces não são expostos ao cliente.
+
+## 11. OpenAPI e Scalar
+
+O documento OpenAPI é gerado pelo ASP.NET Core.
+
+O Scalar é disponibilizado no ambiente de desenvolvimento para:
+
+- consultar a documentação;
+- visualizar schemas;
+- executar os endpoints;
+- verificar exemplos;
+- analisar códigos de resposta.
+
+O projeto utiliza:
+
+- comentários XML;
+- exemplos de requisição e resposta;
+- descrição de propriedades;
+- enum textual para transações;
+- números estritos;
+- transformer de schema;
+- teste automatizado do contrato OpenAPI.
+
+Rotas de desenvolvimento:
+
+```text
+/openapi/v1.json
+/scalar
+```
+
+## 12. Endpoints atuais
+
+### Pessoas
+
+```http
+POST   /api/people
+GET    /api/people
+GET    /api/people/{id}
+DELETE /api/people/{id}
+```
+
+### Transações
+
+```http
+POST /api/transactions
+GET  /api/transactions
+GET  /api/transactions/{id}
+```
+
+### Totais
+
+```http
+GET /api/totals
+```
+
+Os endpoints de consulta por identificador são auxiliares e permitem que operações de criação retornem `201 Created` com uma localização válida para o recurso.
+
+## 13. Estratégia de testes
+
+O projeto utiliza três tipos principais de teste.
+
+### 13.1 Testes de domínio
+
+Validam as regras protegidas pelas entidades.
+
+Exemplos:
+
+- nome inválido;
+- idade negativa;
+- valor inválido;
+- tipo inválido;
+- receita para menor de idade.
+
+### 13.2 Testes de serviço e persistência
+
+Utilizam SQLite em memória para validar comportamentos próximos ao ambiente real.
+
+Exemplos:
+
+- persistência de pessoas;
+- persistência de transações;
+- ordenação;
+- consulta por identificador;
+- exclusão em cascata;
+- cálculo de totais;
+- inclusão de pessoas sem transações.
+
+### 13.3 Testes de contrato OpenAPI
+
+Validam que o documento público permanece coerente.
+
+Exemplos:
+
+- `personId` é representado somente como inteiro;
+- `TransactionType` é representado como string;
+- os valores permitidos são `expense` e `income`;
+- os endpoints esperados aparecem no documento.
+
+## 14. Organização prevista do front-end
+
+O front-end será organizado por funcionalidade.
+
+```text
+src/
+├── app/
+├── components/
+├── features/
+│   ├── people/
+│   ├── transactions/
+│   └── totals/
+├── services/
+├── types/
+└── main.tsx
+```
+
+### app
+
+Configurações globais, rotas, providers e estrutura principal.
+
+### components
+
+Componentes visuais reutilizáveis e independentes de uma funcionalidade específica.
+
+### features
+
+Páginas, componentes, hooks e lógica específica de cada funcionalidade.
+
+### services
+
+Cliente HTTP e comunicação com a API.
+
+### types
+
+Contratos TypeScript compartilhados.
+
+## 15. Complexidades evitadas
+
+A versão atual não utiliza:
+
+- repositório genérico;
+- Unit of Work adicional sobre o Entity Framework Core;
+- múltiplos projetos sem necessidade;
+- CQRS;
+- MediatR;
+- AutoMapper;
+- barramento de eventos;
+- autenticação;
+- autorização;
+- microsserviços.
+
+Essas decisões só devem ser revistas quando um requisito concreto justificar a complexidade.

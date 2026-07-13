@@ -14,7 +14,7 @@ namespace HomeExpenseControl.Api.Features.Totals.Contracts;
 ///   "people": [
 ///     {
 ///       "personId": 1,
-///       "personName": "Ana Souza",
+///       "personName": "Arthur Nunes",
 ///       "totalIncome": 3500.00,
 ///       "totalExpenses": 1250.50,
 ///       "balance": 2249.50

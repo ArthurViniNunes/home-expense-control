@@ -1,216 +1,373 @@
 # Regras de Negócio
 
-Este documento descreve os comportamentos que devem permanecer válidos independentemente da interface ou da tecnologia de persistência utilizada.
+## 1. Objetivo
 
-## Pessoas
+Este documento descreve os comportamentos que devem permanecer válidos independentemente da interface, do cliente ou da tecnologia de persistência.
 
-### Dados da pessoa
+As regras que protegem a integridade dos dados são aplicadas pelo back-end.
+
+O front-end poderá repetir validações para melhorar a experiência do usuário, mas nunca será a única camada responsável por elas.
+
+## 2. Pessoas
+
+### 2.1 Dados da pessoa
 
 Uma pessoa possui:
 
-- Um identificador único gerado automaticamente.
-- Um nome.
-- Uma idade.
+- identificador único gerado automaticamente;
+- nome;
+- idade.
 
-### Criação de pessoa
+### 2.2 Cadastro de pessoa
 
-Uma pessoa poderá ser cadastrada quando:
+Uma pessoa pode ser cadastrada quando:
 
-- O nome for informado.
-- O nome não for composto apenas por espaços.
-- A idade for um número válido e não negativo.
+- o nome é informado;
+- o nome não contém apenas espaços;
+- o nome possui no máximo 120 caracteres;
+- a idade é um número inteiro;
+- a idade é igual ou superior a zero.
 
-Espaços no início e no final do nome devem ser removidos antes da persistência.
+O nome é normalizado antes da persistência, removendo espaços no início e no final.
 
-### Listagem de pessoas
+Exemplo válido:
 
-O sistema deve retornar todas as pessoas cadastradas.
+```json
+{
+  "name": "Arthur Nunes",
+  "age": 22
+}
+```
 
-A implementação inicial deverá utilizar uma ordenação consistente, preferencialmente por nome e depois por identificador.
+### 2.3 Menoridade
 
-### Exclusão de pessoa
+Uma pessoa é considerada menor de idade quando possui menos de 18 anos.
 
-Uma pessoa cadastrada poderá ser excluída por meio de seu identificador.
+A idade não impede o cadastro da pessoa.
 
-Quando uma pessoa for excluída, todas as transações vinculadas a ela também deverão ser excluídas.
+A restrição de menoridade é aplicada durante o cadastro de transações.
 
-A tentativa de excluir uma pessoa inexistente não deve gerar um erro não tratado pela aplicação.
+### 2.4 Listagem de pessoas
 
-## Transações
+A listagem deve retornar todas as pessoas cadastradas.
 
-### Dados da transação
+A ordenação é feita por:
+
+1. nome;
+2. identificador, quando os nomes forem iguais.
+
+### 2.5 Consulta por identificador
+
+Uma pessoa pode ser consultada por seu identificador.
+
+Quando o identificador não corresponde a uma pessoa existente, a API retorna `404 Not Found`.
+
+### 2.6 Exclusão de pessoa
+
+Uma pessoa pode ser excluída por seu identificador.
+
+Quando uma pessoa é excluída, todas as transações vinculadas a ela também são excluídas automaticamente.
+
+A tentativa de excluir uma pessoa inexistente retorna `404 Not Found`.
+
+A exclusão bem-sucedida retorna `204 No Content`.
+
+## 3. Transações
+
+### 3.1 Dados da transação
 
 Uma transação possui:
 
-- Um identificador único gerado automaticamente.
-- Uma descrição.
-- Um valor monetário.
-- Um tipo de transação.
-- O identificador de uma pessoa existente.
+- identificador único gerado automaticamente;
+- descrição;
+- valor;
+- tipo;
+- identificador da pessoa vinculada.
 
-### Tipos de transação
+### 3.2 Tipos permitidos
 
-Os tipos permitidos são:
+Os tipos públicos da API são:
 
-- Despesa.
-- Receita.
+| Valor | Significado |
+|---|---|
+| `expense` | Despesa |
+| `income` | Receita |
 
-Nenhum outro valor será considerado válido.
+O tipo é enviado como texto.
 
-### Criação de transação
+Exemplo:
 
-Uma transação poderá ser cadastrada quando:
+```json
+{ "type": "expense" }
+```
 
-- A descrição for informada.
-- A descrição não for composta apenas por espaços.
-- O valor monetário for maior que zero.
-- O valor possuir no máximo duas casas decimais.
-- O tipo da transação for válido.
-- A pessoa informada existir no sistema.
+Valores numéricos como `1` e `2` não são aceitos no contrato JSON.
 
-Espaços no início e no final da descrição devem ser removidos antes da persistência.
+### 3.3 Cadastro de transação
 
-### Obrigatoriedade da pessoa
+Uma transação pode ser cadastrada quando:
 
-Toda transação deve estar vinculada a uma pessoa previamente cadastrada.
+- a descrição é informada;
+- a descrição não contém apenas espaços;
+- a descrição possui no máximo 200 caracteres;
+- o valor é maior que zero;
+- o valor possui no máximo duas casas decimais;
+- o tipo é `expense` ou `income`;
+- a pessoa informada existe.
 
-O sistema deverá rejeitar uma transação quando o identificador informado não corresponder a uma pessoa existente.
+A descrição é normalizada antes da persistência, removendo espaços no início e no final.
 
-### Restrição para menores de idade
+Exemplo válido:
 
-Uma pessoa será considerada menor de idade quando possuir menos de 18 anos.
+```json
+{
+  "description": "Conta de energia",
+  "amount": 145.34,
+  "type": "expense",
+  "personId": 3
+}
+```
 
-Uma pessoa menor de idade poderá cadastrar despesas.
+### 3.4 Pessoa obrigatória
 
-Uma pessoa menor de idade não poderá cadastrar receitas.
+Toda transação pertence obrigatoriamente a uma pessoa cadastrada.
 
-Exemplos:
+Quando `personId` não corresponde a uma pessoa existente, a API retorna `404 Not Found`.
 
-| Idade | Tipo da transação | Resultado |
-| ----: | ----------------- | --------- |
-|    17 | Despesa           | Permitido |
-|    17 | Receita           | Rejeitado |
-|    18 | Despesa           | Permitido |
-|    18 | Receita           | Permitido |
+O banco também protege o relacionamento por meio de chave estrangeira.
 
-Essa regra deverá ser obrigatoriamente protegida pelo back-end.
+### 3.5 Restrição para menores de idade
 
-O front-end poderá impedir visualmente a seleção de receita para menores de idade, mas essa validação não será considerada suficiente.
+Uma pessoa menor de 18 anos pode cadastrar despesas.
 
-### Listagem de transações
+Uma pessoa menor de 18 anos não pode cadastrar receitas.
 
-O sistema deverá listar as transações cadastradas.
+| Idade | Tipo | Resultado |
+|---:|---|---|
+| 17 | `expense` | Permitido |
+| 17 | `income` | Rejeitado |
+| 18 | `expense` | Permitido |
+| 18 | `income` | Permitido |
 
-Cada transação listada deverá fornecer informações suficientes para identificar:
+Uma tentativa de cadastrar receita para menor de idade retorna `422 Unprocessable Entity`.
 
-- A transação.
-- Sua descrição.
-- Seu valor.
-- Seu tipo.
-- A pessoa vinculada.
+### 3.6 Valores monetários
 
-Um filtro opcional por pessoa poderá ser implementado futuramente sem alterar o comportamento obrigatório.
+O valor informado deve:
 
-## Valores monetários
+- ser maior que zero;
+- possuir no máximo duas casas decimais;
+- ser enviado como número JSON.
 
-Os valores monetários deverão:
-
-- Ser maiores que zero durante o cadastro.
-- Possuir no máximo duas casas decimais.
-- Ser calculados sem tipos binários de ponto flutuante.
-- Ser retornados para o cliente em formato decimal legível.
-
-Exemplos de valores válidos:
+Valores válidos:
 
 ```text
 10
-10,50
-125,99
+10.50
+125.99
 ```
 
-Exemplos de valores inválidos:
+Valores inválidos:
 
 ```text
 0
 -10
-10,999
+10.999
+"125.99"
 ```
 
-## Totais
+O valor é persistido internamente em centavos inteiros.
 
-A consulta de totais deverá incluir todas as pessoas cadastradas, inclusive aquelas que não possuem transações.
-
-Para cada pessoa, o sistema deverá calcular:
-
-- Total de receitas.
-- Total de despesas.
-- Saldo.
-
-O saldo individual será calculado da seguinte forma:
+Exemplo:
 
 ```text
-saldo = total de receitas - total de despesas
+145.34 = 14.534 centavos
 ```
 
-Um saldo positivo indica que as receitas são maiores que as despesas.
+### 3.7 Listagem de transações
 
-Um saldo negativo indica que as despesas são maiores que as receitas.
+A listagem deve retornar todas as transações cadastradas.
 
-Um saldo igual a zero indica que receitas e despesas são iguais ou que a pessoa não possui transações.
+Cada item apresenta:
 
-## Totais gerais
+- identificador;
+- descrição;
+- valor;
+- tipo;
+- identificador da pessoa;
+- nome da pessoa.
 
-Ao final da consulta, o sistema deverá apresentar:
+A listagem atual é ordenada pelo identificador da transação.
 
-- Total geral de receitas.
-- Total geral de despesas.
-- Saldo líquido geral.
+### 3.8 Consulta por identificador
 
-O saldo geral será calculado da seguinte forma:
+Uma transação pode ser consultada por seu identificador.
+
+Quando o identificador não corresponde a uma transação existente, a API retorna `404 Not Found`.
+
+### 3.9 Edição e exclusão
+
+A especificação atual não exige:
+
+- edição de transações;
+- exclusão direta de transações.
+
+As transações são excluídas automaticamente quando sua pessoa é removida.
+
+## 4. Totais
+
+### 4.1 Pessoas incluídas
+
+A consulta de totais deve incluir todas as pessoas cadastradas, inclusive aquelas sem transações.
+
+### 4.2 Totais individuais
+
+Para cada pessoa, o sistema calcula:
+
+- total de receitas;
+- total de despesas;
+- saldo.
+
+O saldo individual é:
 
 ```text
-saldo geral = total geral de receitas - total geral de despesas
+saldo = receitas - despesas
 ```
 
-Os valores gerais deverão corresponder à soma dos totais individuais.
+Interpretação:
 
-## Pessoas sem transações
+- saldo positivo: receitas maiores que despesas;
+- saldo negativo: despesas maiores que receitas;
+- saldo zero: valores iguais ou ausência de transações.
 
-Uma pessoa sem transações deverá aparecer na consulta de totais com:
+### 4.3 Pessoas sem transações
+
+Uma pessoa sem transações aparece com:
+
+```json
+{
+  "totalIncome": 0,
+  "totalExpenses": 0,
+  "balance": 0
+}
+```
+
+### 4.4 Totais gerais
+
+A resposta também apresenta:
+
+- total geral de receitas;
+- total geral de despesas;
+- saldo líquido geral.
+
+O saldo geral é:
 
 ```text
-receitas: 0,00
-despesas: 0,00
-saldo: 0,00
+saldo líquido geral = receitas gerais - despesas gerais
 ```
 
-## Persistência dos dados
+Os valores gerais devem corresponder à soma dos totais individuais.
 
-As pessoas e transações cadastradas deverão continuar disponíveis depois que a aplicação for encerrada e iniciada novamente.
+### 4.5 Ordenação
 
-Armazenamento temporário somente em memória não atende a esse requisito.
+As pessoas na consulta de totais são ordenadas por:
 
-## Proteção das regras
+1. nome;
+2. identificador, quando os nomes forem iguais.
 
-As regras que protegem a integridade dos dados deverão ser aplicadas pelo back-end.
+## 5. Persistência e integridade
 
-O front-end poderá repetir algumas validações para melhorar a experiência do usuário, mas nunca deverá ser a única camada responsável por essas regras.
+Os dados devem permanecer disponíveis depois que a aplicação for encerrada e iniciada novamente.
 
-## Casos extremos esperados
+Armazenamento somente em memória não atende ao requisito.
 
-A implementação e os testes automatizados deverão considerar:
+A integridade é protegida em diferentes níveis.
 
-- Nome vazio.
-- Descrição vazia.
-- Idade negativa.
-- Valor da transação igual a zero.
-- Valor negativo.
-- Valor com mais de duas casas decimais.
-- Tipo de transação inválido.
-- Pessoa inexistente.
-- Receita cadastrada para menor de idade.
-- Pessoa sem transações.
-- Exclusão de pessoa com transações existentes.
-- Totais contendo receitas e despesas.
-- Saldo individual negativo.
-- Saldo geral negativo.
+### API
+
+- validação de formato;
+- propriedades obrigatórias;
+- limites de valor;
+- tipos permitidos.
+
+### Domínio
+
+- proteção contra estados inválidos;
+- normalização;
+- limite de casas decimais;
+- regra de menoridade.
+
+### Banco de dados
+
+- chave primária;
+- chave estrangeira;
+- exclusão em cascata;
+- restrição de valor positivo;
+- restrição de tipo válido.
+
+## 6. Convenções HTTP
+
+| Situação | Status |
+|---|---:|
+| Recurso criado | `201 Created` |
+| Consulta concluída | `200 OK` |
+| Exclusão concluída | `204 No Content` |
+| Dados ou formato inválido | `400 Bad Request` |
+| Pessoa ou transação inexistente | `404 Not Found` |
+| Regra de negócio violada | `422 Unprocessable Entity` |
+| Erro inesperado | `500 Internal Server Error` |
+
+As respostas de erro seguem o padrão `ProblemDetails`.
+
+## 7. Casos cobertos pelos testes
+
+### Pessoas
+
+- criação com dados válidos;
+- normalização do nome;
+- nome vazio;
+- nome acima do limite;
+- idade negativa;
+- menoridade;
+- listagem vazia;
+- ordenação;
+- consulta por identificador;
+- exclusão;
+- exclusão de pessoa inexistente;
+- exclusão em cascata.
+
+### Transações
+
+- criação de despesa válida;
+- criação de receita válida para adulto;
+- despesa para menor;
+- receita para menor;
+- descrição inválida;
+- descrição acima do limite;
+- valor igual a zero;
+- valor negativo;
+- valor com mais de duas casas decimais;
+- tipo inválido;
+- pessoa inexistente;
+- listagem;
+- consulta por identificador;
+- serialização textual do tipo.
+
+### Totais
+
+- ausência de pessoas;
+- pessoa sem transações;
+- receitas e despesas da mesma pessoa;
+- múltiplas pessoas;
+- saldo individual positivo;
+- saldo individual negativo;
+- saldo geral;
+- ordenação por nome.
+
+### Contrato OpenAPI
+
+- identificadores representados como inteiros;
+- ausência de pattern numérico indevido;
+- tipo de transação representado como string;
+- valores permitidos `expense` e `income`;
+- presença dos endpoints documentados.

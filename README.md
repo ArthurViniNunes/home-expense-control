@@ -1,49 +1,57 @@
 # Controle de Gastos Residenciais
 
-Aplicação full stack para gerenciamento de pessoas, transações e totais financeiros residenciais.
+Aplicação full stack para cadastro de pessoas, registro de receitas e despesas e consulta de totais financeiros residenciais.
 
-O projeto está sendo desenvolvido de forma incremental. Cada commit do Git representa uma etapa pequena, funcional e compreensível da evolução do produto.
+O projeto é desenvolvido de forma incremental. Cada commit representa uma evolução pequena, funcional e compreensível do produto.
 
-## Status do projeto
+## Status
 
-Etapa atual: Implementação da funcionalidade de cadastro, listagem e exclusão de pessoas.
+### Back-end
 
-As funcionalidades de negócio serão implementadas nos próximos commits.
+Implementado:
 
-## Funcionalidades previstas
+- cadastro, listagem, consulta e exclusão de pessoas;
+- cadastro, listagem e consulta de transações;
+- exclusão automática das transações ao remover uma pessoa;
+- restrição de receitas para menores de 18 anos;
+- totais individuais e gerais;
+- persistência com SQLite;
+- documentação OpenAPI;
+- interface interativa com Scalar;
+- testes automatizados de domínio, serviços, persistência e contrato OpenAPI.
 
-A aplicação permitirá:
+### Front-end
 
-- Cadastro, listagem e exclusão de pessoas.
-- Exclusão automática das transações vinculadas a uma pessoa removida.
-- Cadastro e listagem de transações.
-- Classificação das transações como receita ou despesa.
-- Restrição que impede menores de idade de cadastrarem receitas.
-- Consulta dos totais financeiros de cada pessoa.
-- Consulta dos totais gerais da residência.
-- Persistência local dos dados.
+Próxima etapa:
+
+- React;
+- TypeScript;
+- Vite;
+- ESLint;
+- integração com a API.
 
 ## Tecnologias
 
 ### Back-end
 
-- ASP.NET Core Web API
-- C#
-- Entity Framework Core
-- SQLite
-- OpenAPI com Scalar
-- xUnit
+- .NET 10;
+- ASP.NET Core Web API;
+- Entity Framework Core;
+- SQLite;
+- OpenAPI;
+- Scalar;
+- xUnit.
 
 ### Front-end
 
-- React
-- TypeScript
-- Vite
-- ESLint
+- React;
+- TypeScript;
+- Vite;
+- ESLint.
 
 ## Estrutura do repositório
 
-```txt
+```text
 home-expense-control/
 ├── src/
 │   ├── backend/
@@ -60,76 +68,206 @@ home-expense-control/
 
 ## Pré-requisitos
 
-Antes de executar o projeto, instale:
-
-- SDK do .NET compatível com o framework definido no projeto.
-- Node.js.
+- .NET SDK 10;
+- Node.js;
 - npm.
 
-## Executando o back-end
+## Configuração inicial
 
-Na raiz do repositório:
+Restaure as ferramentas e dependências do back-end:
 
 ```bash
+dotnet tool restore
 dotnet restore
-dotnet run --project src/backend/HomeExpenseControl.Api
 ```
 
-O terminal exibirá o endereço local utilizado pela API.
-
-## Executando o front-end
-
-Na raiz do repositório:
+Instale as dependências do front-end:
 
 ```bash
 cd src/frontend
 npm install
-npm run dev
+cd ../..
 ```
 
-O terminal exibirá o endereço local utilizado pela aplicação React.
+## Banco de dados
 
-## Executando os testes
+O projeto utiliza SQLite.
+
+As migrations são versionadas, mas o arquivo físico do banco não faz parte do repositório.
+
+Para aplicar as migrations:
+
+```bash
+dotnet ef database update   --project src/backend/HomeExpenseControl.Api   --startup-project src/backend/HomeExpenseControl.Api
+```
+
+## Executando a API
 
 Na raiz do repositório:
 
 ```bash
+dotnet run --project src/backend/HomeExpenseControl.Api
+```
+
+O endereço utilizado será exibido no terminal.
+
+Em ambiente de desenvolvimento:
+
+```text
+/scalar
+/openapi/v1.json
+```
+
+## Executando os testes
+
+```bash
 dotnet test
 ```
 
-## Executando as verificações de qualidade
-
-Back-end:
+Verificações completas do back-end:
 
 ```bash
+dotnet format --verify-no-changes
 dotnet build
 dotnet test
 ```
 
-Front-end:
+Verificação de dependências vulneráveis:
+
+```bash
+dotnet list HomeExpenseControl.sln package --vulnerable --include-transitive
+```
+
+## Executando o front-end
 
 ```bash
 cd src/frontend
+npm run dev
+```
+
+Verificações do front-end:
+
+```bash
 npm run lint
 npm run build
 ```
 
-## Documentação
+## Endpoints
 
-A documentação técnica adicional está disponível em:
+### Pessoas
+
+```http
+POST   /api/people
+GET    /api/people
+GET    /api/people/{id}
+DELETE /api/people/{id}
+```
+
+### Transações
+
+```http
+POST /api/transactions
+GET  /api/transactions
+GET  /api/transactions/{id}
+```
+
+### Totais
+
+```http
+GET /api/totals
+```
+
+## Exemplos
+
+### Cadastrar pessoa
+
+```json
+{
+  "name": "Arthur Nunes",
+  "age": 22
+}
+```
+
+### Cadastrar despesa
+
+```json
+{
+  "description": "Conta de energia",
+  "amount": 145.34,
+  "type": "expense",
+  "personId": 1
+}
+```
+
+### Cadastrar receita
+
+```json
+{
+  "description": "Salário",
+  "amount": 3500,
+  "type": "income",
+  "personId": 1
+}
+```
+
+## Regras principais
+
+- O nome da pessoa é obrigatório.
+- A idade não pode ser negativa.
+- Toda transação deve pertencer a uma pessoa existente.
+- O valor da transação deve ser maior que zero.
+- O valor pode possuir no máximo duas casas decimais.
+- Menores de 18 anos podem registrar somente despesas.
+- Ao excluir uma pessoa, suas transações são excluídas automaticamente.
+- Pessoas sem transações aparecem na consulta de totais com valores zerados.
+- O saldo é calculado como receitas menos despesas.
+
+## Valores monetários
+
+A API trabalha com valores decimais, mas os dados são persistidos como centavos inteiros.
+
+```text
+R$ 145,34 = 14.534 centavos
+```
+
+Essa decisão evita perda de precisão e mantém as agregações consistentes.
+
+## Contrato JSON
+
+O tipo da transação é textual:
+
+```text
+expense
+income
+```
+
+Valores numéricos como `1` e `2` são rejeitados.
+
+Números também devem ser enviados como números JSON, não como strings.
+
+## Tratamento de erros
+
+As respostas de erro seguem o padrão `ProblemDetails`.
+
+| Situação | Status |
+|---|---:|
+| Dados inválidos | `400 Bad Request` |
+| Recurso não encontrado | `404 Not Found` |
+| Regra de negócio violada | `422 Unprocessable Entity` |
+| Erro inesperado | `500 Internal Server Error` |
+
+## Documentação técnica
 
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/business-rules.md`](docs/business-rules.md)
 
 ## Princípios de desenvolvimento
 
-Este projeto segue os seguintes princípios:
-
-- As regras de negócio devem ser protegidas pelo back-end.
-- Os controllers devem permanecer focados em responsabilidades HTTP.
-- Cálculos monetários não devem utilizar tipos de ponto flutuante.
-- Os contratos públicos da API não devem expor diretamente as entidades de persistência.
-- Os nomes devem comunicar intenção sem exigir comentários desnecessários.
-- Os comentários devem explicar decisões e comportamentos não óbvios.
-- Cada commit deve possuir uma única responsabilidade clara.
-- A aplicação deve permanecer executável durante sua evolução no histórico do Git.
+- Regras de negócio protegidas pelo back-end.
+- Entidades não expostas diretamente na API.
+- Controllers pequenos.
+- Organização por funcionalidade.
+- Comentários para explicar decisões, não linhas óbvias.
+- Testes com nomes descritivos.
+- Commits pequenos e com responsabilidade única.
+- Código executável ao longo do histórico do Git.
