@@ -15,23 +15,31 @@ namespace HomeExpenseControl.Api.Features.People.Contracts;
 public sealed class CreatePersonRequest
 {
     /// <summary>
-    /// Nome completo da pessoa.
+    /// Nome da pessoa.
     /// </summary>
     /// <example>Arthur Nunes</example>
-    [Required(ErrorMessage = "O nome é obrigatório.")]
+    [Required(
+        AllowEmptyStrings = false,
+        ErrorMessage = "O nome é obrigatório.")]
     [StringLength(
         Person.MaxNameLength,
-        ErrorMessage = "O nome deve possuir no máximo {1} caracteres.")]
-    public string? Name { get; init; }
+        ErrorMessage =
+            "O nome deve possuir no máximo {1} caracteres.")]
+    [MinLength(
+        Person.MinNameLength,
+        ErrorMessage = "O nome deve possuir no mínimo {1} caracteres.")]
+    public required string Name { get; init; }
 
     /// <summary>
-    /// Idade atual da pessoa.
+    /// Idade atual da pessoa, expressa em anos completos.
     /// </summary>
+    /// <remarks>
+    /// Pessoas com menos de 18 anos podem registrar somente despesas.
+    /// </remarks>
     /// <example>22</example>
-    [Required(ErrorMessage = "A idade é obrigatória.")]
     [Range(
         0,
         int.MaxValue,
         ErrorMessage = "A idade não pode ser negativa.")]
-    public int? Age { get; init; }
+    public required int Age { get; init; }
 }

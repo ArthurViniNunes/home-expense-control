@@ -23,16 +23,16 @@ public sealed class PeopleService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Age is null)
+        if (request.Age < 0)
         {
             throw new ArgumentException(
-                "A idade é obrigatória.",
+                "A idade não pode ser negativa.",
                 nameof(request));
         }
 
         var person = new Person(
-            request.Name ?? string.Empty,
-            request.Age.Value);
+            request.Name,
+            request.Age);
 
         _dbContext.People.Add(person);
 

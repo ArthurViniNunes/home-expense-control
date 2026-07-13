@@ -24,30 +24,9 @@ public sealed class TransactionsService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Amount is null)
-        {
-            throw new ArgumentException(
-                "O valor da transação é obrigatório.",
-                nameof(request));
-        }
-
-        if (request.Type is null)
-        {
-            throw new ArgumentException(
-                "O tipo da transação é obrigatório.",
-                nameof(request));
-        }
-
-        if (request.PersonId is null)
-        {
-            throw new ArgumentException(
-                "A pessoa é obrigatória.",
-                nameof(request));
-        }
-
         var person = await _dbContext.People
             .SingleOrDefaultAsync(
-                person => person.Id == request.PersonId.Value,
+                person => person.Id == request.PersonId,
                 cancellationToken);
 
         if (person is null)
@@ -58,8 +37,8 @@ public sealed class TransactionsService
 
         var transaction = new Transaction(
             request.Description ?? string.Empty,
-            request.Amount.Value,
-            request.Type.Value,
+            request.Amount,
+            request.Type,
             person);
 
         _dbContext.Transactions.Add(transaction);
