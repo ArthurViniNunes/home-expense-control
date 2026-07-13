@@ -7,6 +7,7 @@ using HomeExpenseControl.Api.Common.Errors;
 using HomeExpenseControl.Api.Features.Transactions;
 using HomeExpenseControl.Api.Common.OpenApi;
 using HomeExpenseControl.Api.Features.Totals;
+using HomeExpenseControl.Api.Common.Cors;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +76,33 @@ builder.Services.AddScoped<PeopleService>();
 builder.Services.AddScoped<TransactionsService>();
 builder.Services.AddScoped<TotalsService>();
 
+
+// Cors
+var frontendOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>();
+
+if (builder.Environment.IsDevelopment()
+    && (frontendOrigins is null || frontendOrigins.Length == 0))
+{
+    throw new InvalidOperationException(
+        "Nenhuma origem do front-end foi configurada em " +
+        "'Cors:AllowedOrigins'.");
+}
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        CorsPolicyNames.Frontend,
+        policy =>
+        {
+            policy
+                .WithOrigins(frontendOrigins ?? [])
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -100,6 +128,8 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
+
+app.UseCors(CorsPolicyNames.Frontend);
 
 app.UseAuthorization();
 
