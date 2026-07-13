@@ -120,7 +120,12 @@ public sealed class PeopleController : ControllerBase
         typeof(ProblemDetails),
         StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PersonResponse>> GetById(
-        [FromRoute, Range(1, int.MaxValue)] int id,
+        [FromRoute]
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
         CancellationToken cancellationToken)
     {
         var person = await _peopleService.GetByIdAsync(
@@ -175,7 +180,12 @@ public sealed class PeopleController : ControllerBase
         typeof(ProblemDetails),
         StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
-        [FromRoute, Range(1, int.MaxValue)] int id,
+        [FromRoute]
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
         CancellationToken cancellationToken)
     {
         var deleted = await _peopleService.DeleteAsync(

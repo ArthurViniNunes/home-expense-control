@@ -20,6 +20,11 @@ builder.Services
         // Exemplo inválido: { "personId": "3" }
         options.JsonSerializerOptions.NumberHandling =
             JsonNumberHandling.Strict;
+    })
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory =
+            ApiValidationProblemDetailsFactory.Create;
     });
 
 builder.Services.ConfigureHttpJsonOptions(options =>

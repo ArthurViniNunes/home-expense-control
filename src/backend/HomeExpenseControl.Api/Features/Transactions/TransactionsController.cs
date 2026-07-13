@@ -118,7 +118,12 @@ public sealed class TransactionsController : ControllerBase
         typeof(ProblemDetails),
         StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TransactionResponse>> GetById(
-        [FromRoute, Range(1, int.MaxValue)] int id,
+        [FromRoute]
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
         CancellationToken cancellationToken)
     {
         var transaction = await _transactionsService.GetByIdAsync(
