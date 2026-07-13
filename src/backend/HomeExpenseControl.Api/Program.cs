@@ -105,8 +105,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+await app.ApplyDatabaseMigrationsAsync();
+
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.MapOpenApi();
 

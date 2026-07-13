@@ -95,11 +95,7 @@ O projeto utiliza SQLite.
 
 As migrations são versionadas, mas o arquivo físico do banco não faz parte do repositório.
 
-Para aplicar as migrations:
-
-```bash
-dotnet ef database update   --project src/backend/HomeExpenseControl.Api   --startup-project src/backend/HomeExpenseControl.Api
-```
+As migrations são aplicadas automaticamente ao iniciar a aplicação em ambiente de desenvolvimento.
 
 ## Executando a API
 

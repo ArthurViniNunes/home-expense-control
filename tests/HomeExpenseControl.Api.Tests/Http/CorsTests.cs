@@ -19,7 +19,7 @@ public sealed class CorsTests
         _client = factory
             .WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Development");
+                builder.UseEnvironment("Testing");
 
                 builder.ConfigureAppConfiguration(
                     (_, configuration) =>

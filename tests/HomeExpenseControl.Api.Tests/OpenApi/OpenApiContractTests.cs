@@ -15,7 +15,7 @@ public sealed class OpenApiContractTests
         _client = factory
             .WithWebHostBuilder(builder =>
             {
-                builder.UseEnvironment("Development");
+                builder.UseEnvironment("Testing");
             })
             .CreateClient();
     }
