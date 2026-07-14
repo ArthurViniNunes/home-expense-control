@@ -13,6 +13,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs'
 import { TotalsOverview } from '@/features/totals/components/TotalsOverview'
+import { PeopleSection } from '@/features/people/components/PeopleSection'
 
 function App() {
   return (
@@ -115,11 +116,8 @@ function App() {
               </p>
             </header>
 
-            <FeaturePlaceholder
-              title="Pessoas cadastradas"
-              description="Cadastro, listagem e exclusão de moradores."
-              icon={Users}
-            />
+            <PeopleSection/>
+
           </TabsContent>
 
           <TabsContent
