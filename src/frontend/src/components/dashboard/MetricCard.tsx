@@ -22,6 +22,7 @@ interface MetricCardProps {
   description: string
   icon: LucideIcon
   tone?: MetricTone
+  valueTone?: MetricTone
 }
 
 const toneClasses: Record<MetricTone, string> = {
@@ -38,12 +39,26 @@ const toneClasses: Record<MetricTone, string> = {
     'bg-blue-500/10 text-blue-700 dark:text-blue-400',
 }
 
+const textToneClasses: Record<MetricTone, string> = {
+  default: 'text-foreground',
+
+  positive:
+    'text-emerald-700 dark:text-emerald-400',
+
+  negative:
+    'text-rose-700 dark:text-rose-400',
+
+  balance:
+    'text-blue-700 dark:text-blue-400',
+}
+
 export function MetricCard({
   title,
   value,
   description,
   icon: Icon,
   tone = 'default',
+  valueTone = 'default',
 }: MetricCardProps) {
   return (
     <Card className="gap-4">
@@ -66,7 +81,7 @@ export function MetricCard({
       </CardHeader>
 
       <CardContent>
-        <p className="text-2xl font-semibold tracking-tight">
+        <p className={cn('text-2xl font-semibold tracking-tight', textToneClasses[valueTone])}>
           {value}
         </p>
 

@@ -1,4 +1,5 @@
-import { httpClient } from '../../services/httpClient'
+import { httpClient } from '@/services/httpClient'
+
 import type { Totals } from './totalsTypes'
 
 export const totalsApi = {
