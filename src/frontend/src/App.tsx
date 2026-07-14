@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 
 import { AppHeader } from '@/components/layout/AppHeader'
-import { FeaturePlaceholder } from '@/components/layout/FeaturePlaceholder'
 import {
   Tabs,
   TabsContent,
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/tabs'
 import { TotalsOverview } from '@/features/totals/components/TotalsOverview'
 import { PeopleSection } from '@/features/people/components/PeopleSection'
+import { TransactionsSection } from './features/transactions/components/TransactionsSection'
 
 function App() {
   return (
@@ -139,11 +139,8 @@ function App() {
               </p>
             </header>
 
-            <FeaturePlaceholder
-              title="Histórico de transações"
-              description="Cadastro e consulta das receitas e despesas."
-              icon={ArrowLeftRight}
-            />
+            <TransactionsSection />
+
           </TabsContent>
         </Tabs>
       </main>
