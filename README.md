@@ -2,33 +2,44 @@
 
 Aplicação full stack para cadastro de pessoas, registro de receitas e despesas e consulta de totais financeiros residenciais.
 
-O projeto é desenvolvido de forma incremental. Cada commit representa uma evolução pequena, funcional e compreensível do produto.
+O projeto foi desenvolvido de forma incremental. Cada commit representa uma evolução pequena, funcional e compreensível do produto.
 
-## Status
+## Funcionalidades
 
-### Back-end
+### Pessoas
 
-Implementado:
+- cadastro de pessoas;
+- listagem em ordem alfabética;
+- identificação de adultos e menores de idade;
+- exclusão com confirmação;
+- exclusão automática das transações vinculadas.
 
-- cadastro, listagem, consulta e exclusão de pessoas;
-- cadastro, listagem e consulta de transações;
-- exclusão automática das transações ao remover uma pessoa;
-- restrição de receitas para menores de 18 anos;
-- totais individuais e gerais;
-- persistência com SQLite;
-- documentação OpenAPI;
-- interface interativa com Scalar;
-- testes automatizados de domínio, serviços, persistência e contrato OpenAPI.
+### Transações
 
-### Front-end
+- cadastro de receitas e despesas;
+- associação obrigatória a uma pessoa;
+- listagem responsiva;
+- bloqueio de receitas para menores de 18 anos;
+- valores monetários formatados em reais;
+- ordenação das movimentações mais recentes primeiro.
 
-Próxima etapa:
+### Totais
 
-- React;
-- TypeScript;
-- Vite;
-- ESLint;
-- integração com a API.
+- total de receitas;
+- total de despesas;
+- saldo líquido geral;
+- totais individuais por pessoa;
+- inclusão de pessoas sem transações;
+- visualização responsiva em tabela e cartões.
+
+### Experiência da interface
+
+- estados de carregamento;
+- tratamento de erros;
+- notificações de sucesso e falha;
+- confirmação de ações destrutivas;
+- interface responsiva;
+- documentação da API acessível pelo cabeçalho.
 
 ## Tecnologias
 
@@ -38,7 +49,7 @@ Próxima etapa:
 - ASP.NET Core Web API;
 - Entity Framework Core;
 - SQLite;
-- OpenAPI;
+- OpenAPI nativo;
 - Scalar;
 - xUnit.
 
@@ -47,21 +58,38 @@ Próxima etapa:
 - React;
 - TypeScript;
 - Vite;
+- Tailwind CSS;
+- shadcn/ui;
+- Radix UI;
+- Lucide React;
+- Sonner;
 - ESLint.
+
+### Qualidade e automação
+
+- GitHub Actions;
+- testes automatizados;
+- verificação de formatação;
+- análise de dependências vulneráveis;
+- build automatizado do back-end e do front-end.
 
 ## Estrutura do repositório
 
 ```text
-home-expense-control/
+desafio-tecnico-TS.NET/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── docs/
+│   ├── architecture.md
+│   └── business-rules.md
 ├── src/
 │   ├── backend/
 │   │   └── HomeExpenseControl.Api/
 │   └── frontend/
 ├── tests/
 │   └── HomeExpenseControl.Api.Tests/
-├── docs/
-│   ├── architecture.md
-│   └── business-rules.md
+├── .nvmrc
 ├── HomeExpenseControl.sln
 └── README.md
 ```
@@ -69,33 +97,69 @@ home-expense-control/
 ## Pré-requisitos
 
 - .NET SDK 10;
-- Node.js;
-- npm.
+- Node.js 24;
+- npm;
+- Git.
+
+A versão do Node.js esperada está registrada em:
+```
+.nvmrc
+```
+
+Caso utilize NVM:
+
+```bash
+nvm install
+nvm use
+```
 
 ## Configuração inicial
 
-Restaure as ferramentas e dependências do back-end:
+Clone o repositório e entre na pasta:
+
+```bash
+git clone https://github.com/ArthurViniNunes/home-expense-control.git
+cd home-expense-control
+```
+
+### Back-end
+
+Restaure as ferramentas e dependências:
 
 ```bash
 dotnet tool restore
 dotnet restore
 ```
 
-Instale as dependências do front-end:
+### Front-end
+
+Instale as dependências:
 
 ```bash
 cd src/frontend
-npm install
+npm ci
 cd ../..
 ```
 
-## Banco de dados
+## Configuração do front-end
 
-O projeto utiliza SQLite.
+O front-end utiliza uma variável de ambiente para localizar a API.
 
-As migrations são versionadas, mas o arquivo físico do banco não faz parte do repositório.
+Copie o arquivo de exemplo:
 
-As migrations são aplicadas automaticamente ao iniciar a aplicação em ambiente de desenvolvimento.
+```bash
+cp src/frontend/.env.example src/frontend/.env
+```
+
+Para execução local, o conteúdo esperado é:
+
+```text
+VITE_API_BASE_URL=http://localhost:5079
+```
+
+O arquivo .env é local e não deve ser versionado.
+
+A aplicação valida essa variável ao iniciar. Caso ela não esteja configurada, o front-end exibe um erro explícito.
 
 ## Executando a API
 
@@ -104,17 +168,67 @@ Na raiz do repositório:
 ```bash
 dotnet run --project src/backend/HomeExpenseControl.Api
 ```
-
-O endereço utilizado será exibido no terminal.
-
-Em ambiente de desenvolvimento:
+Endereços locais:
 
 ```text
-/scalar
-/openapi/v1.json
+API:      http://localhost:5079
+Scalar:   http://localhost:5079/scalar
+OpenAPI:  http://localhost:5079/openapi/v1.json
+```
+As rotas do Scalar e do documento OpenAPI ficam disponíveis em ambiente de desenvolvimento.
+
+## Executando o front-end
+
+Em outro terminal:
+
+```bash
+cd src/frontend
+npm run dev
 ```
 
+Endereço padrão:
+
+```text
+http://localhost:5173
+```
+
+## CORS
+
+Por padrão, a API aceita requisições destas origens locais:
+
+```
+http://localhost:5173
+http://127.0.0.1:5173
+```
+
+Em ambientes externos, como GitHub Codespaces, uma origem adicional pode ser informada por variável de ambiente:
+
+```bash
+Cors__AllowedOrigins__0="http://localhost:5173" \
+Cors__AllowedOrigins__1="http://127.0.0.1:5173" \
+Cors__AllowedOrigins__2="https://URL-DO-FRONTEND" \
+dotnet run --project src/backend/HomeExpenseControl.Api
+```
+
+A URL externa não deve ser gravada diretamente nos arquivos versionados.
+
+## Banco de dados
+
+O projeto utiliza SQLite.
+
+A connection string padrão é:
+
+```text
+Data Source=home-expense-control.db
+```
+
+As migrations são versionadas e aplicadas automaticamente ao iniciar a API em ambiente de desenvolvimento.
+
+O arquivo físico do banco não faz parte do repositório.
+
 ## Executando os testes
+
+Na raiz:
 
 ```bash
 dotnet test
@@ -131,19 +245,15 @@ dotnet test
 Verificação de dependências vulneráveis:
 
 ```bash
-dotnet list HomeExpenseControl.sln package --vulnerable --include-transitive
+dotnet list HomeExpenseControl.sln package \
+  --vulnerable \
+  --include-transitive
 ```
 
-## Executando o front-end
+## Verificações do front-end
 
 ```bash
 cd src/frontend
-npm run dev
-```
-
-Verificações do front-end:
-
-```bash
 npm run lint
 npm run build
 ```
@@ -173,7 +283,7 @@ GET  /api/transactions/{id}
 GET /api/totals
 ```
 
-## Exemplos
+## Exemplos de requisição
 
 ### Cadastrar pessoa
 
@@ -207,20 +317,19 @@ GET /api/totals
 ```
 
 ## Regras principais
-
-- O nome da pessoa é obrigatório.
-- A idade não pode ser negativa.
-- Toda transação deve pertencer a uma pessoa existente.
-- O valor da transação deve ser maior que zero.
-- O valor pode possuir no máximo duas casas decimais.
-- Menores de 18 anos podem registrar somente despesas.
-- Ao excluir uma pessoa, suas transações são excluídas automaticamente.
-- Pessoas sem transações aparecem na consulta de totais com valores zerados.
-- O saldo é calculado como receitas menos despesas.
+- o nome da pessoa é obrigatório;
+- a idade não pode ser negativa;
+- toda transação deve pertencer a uma pessoa existente;
+- o valor da transação deve ser maior que zero;
+- o valor pode possuir no máximo duas casas decimais;
+- menores de 18 anos podem registrar somente despesas;
+- ao excluir uma pessoa, suas transações são excluídas automaticamente;
+- pessoas sem transações aparecem nos totais com valores zerados;
+- o saldo é calculado como receitas menos despesas.
 
 ## Valores monetários
 
-A API trabalha com valores decimais, mas os dados são persistidos como centavos inteiros.
+A API recebe e retorna valores decimais, mas os dados são persistidos como centavos inteiros.
 
 ```text
 R$ 145,34 = 14.534 centavos
@@ -230,7 +339,7 @@ Essa decisão evita perda de precisão e mantém as agregações consistentes.
 
 ## Contrato JSON
 
-O tipo da transação é textual:
+O tipo da transação é representado como texto:
 
 ```text
 expense
@@ -239,7 +348,7 @@ income
 
 Valores numéricos como `1` e `2` são rejeitados.
 
-Números também devem ser enviados como números JSON, não como strings.
+Os números também devem ser enviados como números JSON, e não como strings.
 
 ## Tratamento de erros
 
@@ -252,18 +361,50 @@ As respostas de erro seguem o padrão `ProblemDetails`.
 | Regra de negócio violada | `422 Unprocessable Entity` |
 | Erro inesperado | `500 Internal Server Error` |
 
+## Integração contínua
+
+O workflow localizado em:
+
+```text
+.github/workflows/ci.yml
+```
+
+é executado em pushes e pull requests para a branch `main`.
+
+### Back-end
+- restauração das ferramentas;
+- restauração das dependências;
+- auditoria de pacotes NuGet;
+- verificação de formatação;
+- build em Release;
+- execução dos testes.
+
+### Front-end
+
+- configuração do Node.js pela .nvmrc;
+- instalação com npm ci;
+- execução do ESLint;
+- geração do build de produção.
+
 ## Documentação técnica
 
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/business-rules.md`](docs/business-rules.md)
+- [Arquitetura](docs/architecture.md)
+- [Regras de negócio](docs/business-rules.md)
 
-## Princípios de desenvolvimento
+A documentação interativa da API pode ser consultada pelo Scalar durante a execução local:
 
-- Regras de negócio protegidas pelo back-end.
-- Entidades não expostas diretamente na API.
-- Controllers pequenos.
-- Organização por funcionalidade.
-- Comentários para explicar decisões, não linhas óbvias.
-- Testes com nomes descritivos.
-- Commits pequenos e com responsabilidade única.
-- Código executável ao longo do histórico do Git.
+```text
+http://localhost:5079/scalar
+```
+
+## Decisões de desenvolvimento
+- regras de negócio protegidas pelo back-end;
+- entidades internas não expostas diretamente pela API;
+- controllers pequenos;
+- organização por funcionalidade;
+- valores monetários persistidos em centavos;
+- tratamento centralizado de exceções;
+- interface organizada por features;
+- componentes visuais reutilizáveis;
+- commits pequenos e com responsabilidade única;
+- código executável ao longo do histórico do Git.
