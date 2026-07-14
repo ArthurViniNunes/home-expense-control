@@ -49,7 +49,7 @@ const textToneClasses: Record<MetricTone, string> = {
     'text-rose-700 dark:text-rose-400',
 
   balance:
-    'text-blue-700 dark:text-blue-400',
+    'text-foreground',
 }
 
 export function MetricCard({
