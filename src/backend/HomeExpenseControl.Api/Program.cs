@@ -55,7 +55,7 @@ builder.Services.AddOpenApi(options =>
                 "API para cadastro de pessoas, transações " +
                 "e consulta de totais financeiros residenciais.";
 
-            document.Tags = new List<OpenApiTag>
+            document.Tags = new HashSet<OpenApiTag>
             {
                 new()
                 {
