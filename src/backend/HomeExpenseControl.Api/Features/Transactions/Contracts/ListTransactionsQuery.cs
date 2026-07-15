@@ -24,7 +24,9 @@ public sealed class ListTransactionsQuery : IValidatableObject
     /// Faixa etária da pessoa vinculada à transação.
     /// </summary>
     /// <remarks>
-    /// Use minor para menores de 18 anos ou adult para maiores de idade.
+    /// Use adult para pessoas com 18 anos ou mais.
+    ///
+    /// Use minor para pessoas com menos de 18 anos.
     /// </remarks>
     /// <example>adult</example>
     [RegularExpression(
@@ -48,8 +50,11 @@ public sealed class ListTransactionsQuery : IValidatableObject
     public string? Type { get; init; }
 
     /// <summary>
-    /// Menor valor aceito no resultado.
+    /// Valor mínimo da transação, inclusive.
     /// </summary>
+    /// <remarks>
+    /// Use zero ou um valor positivo com no máximo duas casas decimais.
+    /// </remarks>
     /// <example>100.00</example>
     [Range(
         typeof(decimal),
@@ -60,8 +65,14 @@ public sealed class ListTransactionsQuery : IValidatableObject
     public decimal? MinAmount { get; init; }
 
     /// <summary>
-    /// Maior valor aceito no resultado.
+    /// Valor máximo da transação, inclusive.
     /// </summary>
+    /// <remarks>
+    /// Use zero ou um valor positivo com no máximo duas casas decimais.
+    ///
+    /// Quando os dois limites forem informados, o valor máximo deve ser
+    /// maior ou igual ao valor mínimo.
+    /// </remarks>
     /// <example>500.00</example>
     [Range(
         typeof(decimal),
