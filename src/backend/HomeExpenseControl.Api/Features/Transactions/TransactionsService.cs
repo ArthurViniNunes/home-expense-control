@@ -2,6 +2,7 @@ using HomeExpenseControl.Api.Common.Errors;
 using HomeExpenseControl.Api.Domain.Entities;
 using HomeExpenseControl.Api.Features.Transactions.Contracts;
 using HomeExpenseControl.Api.Infrastructure.Persistence;
+using HomeExpenseControl.Api.Common.Money;
 using Microsoft.EntityFrameworkCore;
 
 namespace HomeExpenseControl.Api.Features.Transactions;
@@ -49,15 +50,71 @@ public sealed class TransactionsService
     }
 
     public async Task<IReadOnlyList<TransactionResponse>> ListAsync(
-        CancellationToken cancellationToken)
+    ListTransactionsQuery query,
+    CancellationToken cancellationToken)
     {
-        return await _dbContext.Transactions
+        ArgumentNullException.ThrowIfNull(query);
+
+        var transactionsQuery = _dbContext.Transactions
             .AsNoTracking()
+            .AsQueryable();
+
+        if (query.PersonId.HasValue)
+        {
+            transactionsQuery = transactionsQuery.Where(
+                transaction =>
+                    transaction.Person.Id == query.PersonId.Value);
+        }
+
+        if (query.AgeGroup == "minor")
+        {
+            transactionsQuery = transactionsQuery.Where(
+                transaction =>
+                    transaction.Person.Age < Person.AdultAge);
+        }
+        else if (query.AgeGroup == "adult")
+        {
+            transactionsQuery = transactionsQuery.Where(
+                transaction =>
+                    transaction.Person.Age >= Person.AdultAge);
+        }
+
+        var transactionType = query.GetTransactionType();
+
+        if (transactionType.HasValue)
+        {
+            transactionsQuery = transactionsQuery.Where(
+                transaction =>
+                    transaction.Type == transactionType.Value);
+        }
+
+        if (query.MinAmount.HasValue)
+        {
+            var minimumAmountInCents =
+                MoneyConverter.ToCents(query.MinAmount.Value);
+
+            transactionsQuery = transactionsQuery.Where(
+                transaction =>
+                    transaction.AmountInCents >= minimumAmountInCents);
+        }
+
+        if (query.MaxAmount.HasValue)
+        {
+            var maximumAmountInCents =
+                MoneyConverter.ToCents(query.MaxAmount.Value);
+
+            transactionsQuery = transactionsQuery.Where(
+                transaction =>
+                    transaction.AmountInCents <= maximumAmountInCents);
+        }
+
+        return await transactionsQuery
             .OrderBy(transaction => transaction.Id)
             .Select(transaction => new TransactionResponse(
                 transaction.Id,
                 transaction.Description,
-                transaction.AmountInCents / 100m,
+                MoneyConverter.FromCents(
+                    transaction.AmountInCents),
                 transaction.Type,
                 new TransactionPersonResponse(
                     transaction.Person.Id,

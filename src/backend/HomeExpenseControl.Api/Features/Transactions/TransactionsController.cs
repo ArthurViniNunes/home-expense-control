@@ -69,25 +69,38 @@ public sealed class TransactionsController : ControllerBase
     }
 
     /// <summary>
-    /// Lista todas as transações cadastradas.
+    /// Lista as transações cadastradas.
     /// </summary>
     /// <remarks>
+    /// Os filtros são opcionais e podem ser combinados.
+    ///
+    /// É possível filtrar por pessoa, tipo da transação e faixa de valor.
+    ///
+    /// Quando nenhum filtro é informado, todas as transações são retornadas.
+    ///
     /// As transações são apresentadas na ordem de seus identificadores.
     /// </remarks>
+    /// <param name="query">Filtros opcionais da consulta.</param>
     /// <param name="cancellationToken">
     /// Token utilizado para cancelar a operação.
     /// </param>
-    /// <returns>Lista de transações cadastradas.</returns>
+    /// <returns>Lista de transações que atendem aos filtros.</returns>
     /// <response code="200">Transações consultadas com sucesso.</response>
+    /// <response code="400">Um ou mais filtros são inválidos.</response>
     [HttpGet]
     [EndpointName("ListTransactions")]
     [ProducesResponseType(
         typeof(IReadOnlyList<TransactionResponse>),
         StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<TransactionResponse>>> List(
+        [FromQuery] ListTransactionsQuery query,
         CancellationToken cancellationToken)
     {
         var transactions = await _transactionsService.ListAsync(
+            query,
             cancellationToken);
 
         return Ok(transactions);
