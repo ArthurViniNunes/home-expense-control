@@ -20,6 +20,11 @@ O projeto foi desenvolvido de forma incremental. Cada commit representa uma evol
 - associação obrigatória a uma pessoa;
 - listagem responsiva;
 - bloqueio de receitas para menores de 18 anos;
+- filtros combináveis por pessoa, faixa etária, tipo e faixa de valor;
+- identificação de maiores e menores de idade nos filtros;
+- valores mínimo e máximo inclusivos;
+- limpeza dos filtros aplicados;
+- estado específico para consultas sem resultados;
 - valores monetários formatados em reais;
 - ordenação das movimentações mais recentes primeiro.
 
@@ -277,6 +282,31 @@ GET  /api/transactions
 GET  /api/transactions/{id}
 ```
 
+#### Filtros de transações
+
+O endpoint de listagem aceita filtros opcionais pela query string:
+
+| Parâmetro | Descrição | Valores aceitos |
+|---|---|---|
+| `personId` | Identificador da pessoa | inteiro maior que zero |
+| `ageGroup` | Faixa etária da pessoa | `adult` ou `minor` |
+| `type` | Tipo da transação | `expense` ou `income` |
+| `minAmount` | Valor mínimo da transação, inclusive | zero ou valor positivo |
+| `maxAmount` | Valor máximo da transação, inclusive | zero ou valor positivo |
+
+Os filtros são opcionais e podem ser combinados.
+
+A classificação etária considera:
+
+- `adult`: pessoa com 18 anos ou mais;
+- `minor`: pessoa com menos de 18 anos.
+
+Quando nenhum filtro é informado, todas as transações são retornadas.
+
+Quando os filtros não encontram correspondências, a API retorna uma lista vazia.
+
+Informar o identificador de uma pessoa inexistente também resulta em uma lista vazia, e não em `404 Not Found`.
+
 ### Totais
 
 ```http
@@ -316,6 +346,41 @@ GET /api/totals
 }
 ```
 
+### Filtrar transações
+
+Filtrar por pessoa:
+
+```http
+GET /api/transactions?personId=1
+```
+
+Filtrar por faixa etária:
+
+```http
+GET /api/transactions?ageGroup=minor
+GET /api/transactions?ageGroup=adult
+```
+
+Filtrar por tipo:
+
+```http
+GET /api/transactions?type=expense
+GET /api/transactions?type=income
+```
+
+Filtrar por faixa de valor:
+
+```http
+GET /api/transactions?minAmount=100&maxAmount=500
+```
+
+Combinar todos os filtros:
+
+```http
+GET /api/transactions?personId=1&ageGroup=adult&type=expense&minAmount=100&maxAmount=500
+```
+Os limites de valor são inclusivos. Portanto, uma transação de 100.00 será retornada quando minAmount=100.
+
 ## Regras principais
 - o nome da pessoa é obrigatório;
 - a idade não pode ser negativa;
@@ -325,6 +390,14 @@ GET /api/totals
 - menores de 18 anos podem registrar somente despesas;
 - ao excluir uma pessoa, suas transações são excluídas automaticamente;
 - pessoas sem transações aparecem nos totais com valores zerados;
+- os filtros de transações são opcionais e podem ser combinados;
+- `adult` representa pessoas com 18 anos ou mais;
+- `minor` representa pessoas com menos de 18 anos;
+- os valores mínimo e máximo dos filtros são inclusivos;
+- os valores dos filtros monetários devem possuir no máximo duas casas decimais;
+- o valor mínimo do filtro não pode ser maior que o valor máximo;
+- filtros inválidos retornam `400 Bad Request`;
+- filtros sem correspondência retornam uma lista vazia;
 - o saldo é calculado como receitas menos despesas.
 
 ## Valores monetários
@@ -407,4 +480,8 @@ http://localhost:5079/scalar
 - interface organizada por features;
 - componentes visuais reutilizáveis;
 - commits pequenos e com responsabilidade única;
-- código executável ao longo do histórico do Git.
+- código executável ao longo do histórico do Git;
+- filtros executados no banco de dados por composição de consultas;
+- comparações monetárias realizadas em centavos inteiros;
+- validação dos filtros protegida tanto no front-end quanto no back-end;
+- filtros da interface refletidos diretamente nos parâmetros da API.

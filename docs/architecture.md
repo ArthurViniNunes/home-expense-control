@@ -50,6 +50,9 @@ A interface permite:
 - registrar receitas e despesas;
 - impedir visualmente receitas para menores de idade;
 - listar transações;
+- filtrar transações por pessoa, faixa etária, tipo e faixa de valor;
+- combinar e limpar filtros;
+- visualizar um estado específico quando a consulta filtrada não possui resultados;
 - consultar totais gerais;
 - consultar totais individuais por pessoa;
 - visualizar estados de carregamento, erro e ausência de dados.
@@ -172,7 +175,13 @@ Responsável por:
 - consultar uma transação pelo identificador;
 - verificar a existência da pessoa vinculada;
 - aplicar a restrição de receita para menores de idade;
-- converter valores monetários para a representação interna.
+- converter valores monetários para a representação interna;
+- receber filtros opcionais pela query string;
+- validar pessoa, faixa etária, tipo e limites monetários;
+- combinar filtros por meio da composição progressiva de consultas;
+- executar os filtros diretamente no banco de dados;
+- comparar os limites monetários utilizando centavos inteiros;
+- devolver uma lista vazia quando nenhuma transação corresponde aos filtros.
 
 #### Totals
 
@@ -269,6 +278,18 @@ R$ 125,90 = 12.590 centavos
 
 A entidade `Transaction` armazena `AmountInCents`, e a conversão é centralizada no `MoneyConverter`.
 
+A mesma representação é utilizada nos filtros por faixa de valor.
+
+Os parâmetros `minAmount` e `maxAmount` chegam à API como valores decimais, são validados e convertidos para centavos antes da consulta ao banco.
+
+Exemplo:
+
+```text
+minAmount=125.90 >> 12.590 centavos
+```
+
+Dessa forma, os filtros monetários utilizam a mesma precisão adotada na persistência e nos cálculos de totais.
+
 Essa decisão:
 
 - preserva valores exatos;
@@ -313,6 +334,44 @@ export interface CreateTransactionInput {
 }
 ```
 
+### 8.1 Contrato dos filtros de transações
+
+A listagem de transações utiliza o contrato:
+
+```text
+ListTransactionsQuery
+```
+
+Esse contrato representa os parâmetros opcionais recebidos pela query string:
+
+| Propriedade | Responsabilidade                     |
+| ----------- | ------------------------------------ |
+| `PersonId`  | Filtrar pelo identificador da pessoa |
+| `AgeGroup`  | Filtrar adultos ou menores de idade  |
+| `Type`      | Filtrar receitas ou despesas         |
+| `MinAmount` | Definir o valor mínimo inclusivo     |
+| `MaxAmount` | Definir o valor máximo inclusivo     |
+
+Os filtros são opcionais e podem ser combinados.
+
+A validação ocorre antes da execução do serviço e protege situações como:
+
+- identificador igual ou menor que zero;
+- faixa etária diferente de `adult` ou `minor`;
+- tipo diferente de `expense` ou `income`;
+- valores negativos;
+- valores com mais de duas casas decimais;
+- valor mínimo maior que o valor máximo.
+
+A classificação etária considera:
+
+```text
+minor: idade menor que 18
+adult: idade igual ou superior a 18
+```
+
+O controller recebe o contrato por meio de `[FromQuery]`. O atributo `[ApiController]` executa o model binding e retorna automaticamente `400 Bad Request` quando os parâmetros são inválidos.
+
 ## 9. Convenções JSON
 
 A API utiliza as seguintes convenções:
@@ -355,6 +414,18 @@ O tratamento de exceções é centralizado, e as respostas seguem o padrão `Pro
 | Violação de regra de negócio | `422 Unprocessable Entity` |
 | Erro inesperado | `500 Internal Server Error` |
 
+Na listagem de transações, filtros inválidos retornam `400 Bad Request` no formato `ValidationProblemDetails`.
+
+Exemplo de consulta inválida:
+
+```http
+GET /api/transactions?minAmount=500&maxAmount=100
+```
+
+A resposta informa que o valor mínimo não pode ser maior que o valor máximo.
+
+Uma pessoa inexistente informada em `personId` não é tratada como recurso individual ausente. Nesse caso, a consulta é válida e retorna uma lista vazia.
+
 Exceções internas e stack traces não são expostos ao cliente.
 
 No front-end, os erros da API são convertidos para uma representação própria e apresentados por meio de:
@@ -385,6 +456,11 @@ O projeto utiliza:
 - números estritos;
 - transformer de schema;
 - testes automatizados do contrato OpenAPI.
+- documentação individual dos parâmetros dos filtros;
+- exemplos de filtros simples e combinados;
+- descrição dos valores `adult`, `minor`, `expense` e `income`;
+- indicação de que os limites monetários são inclusivos;
+- resposta `400 Bad Request` documentada para filtros inválidos.
 
 Rotas de desenvolvimento:
 
@@ -392,6 +468,18 @@ Rotas de desenvolvimento:
 /openapi/v1.json
 /scalar
 ```
+
+No endpoint `GET /api/transactions`, o Scalar apresenta individualmente os parâmetros:
+
+```text
+personId
+ageGroup
+type
+minAmount
+maxAmount
+```
+
+Essas informações são geradas a partir dos comentários XML e do contrato `ListTransactionsQuery`.
 
 Em execução local:
 
@@ -420,6 +508,43 @@ POST /api/transactions
 GET  /api/transactions
 GET  /api/transactions/{id}
 ```
+
+A listagem aceita filtros opcionais:
+
+```http
+GET /api/transactions?personId=1
+GET /api/transactions?ageGroup=minor
+GET /api/transactions?type=expense
+GET /api/transactions?minAmount=100&maxAmount=500
+```
+
+Os filtros também podem ser combinados:
+
+```http
+GET /api/transactions?personId=1&ageGroup=adult&type=expense&minAmount=100&maxAmount=500
+```
+
+O fluxo da consulta é:
+
+```text
+Query string
+    v
+TransactionsController
+    v
+ListTransactionsQuery
+    v
+Validação dos parâmetros
+    v
+TransactionsService
+    v
+Composição do IQueryable
+    v
+Entity Framework Core
+    v
+SQLite
+```
+
+Somente os filtros informados são adicionados à consulta. Quando nenhum parâmetro é enviado, o endpoint mantém o comportamento original e retorna todas as transações.
 
 ### Totais
 
@@ -458,6 +583,13 @@ Exemplos:
 - exclusão em cascata;
 - cálculo de totais;
 - inclusão de pessoas sem transações.
+- filtro por pessoa;
+- filtro por tipo;
+- filtro por maioridade;
+- filtro por menoridade;
+- valores mínimo e máximo inclusivos;
+- combinação de todos os filtros;
+- consulta filtrada sem resultados.
 
 ### 13.3 Testes HTTP e de contrato
 
@@ -472,6 +604,14 @@ Exemplos:
 - `TransactionType` representado como string;
 - valores permitidos `expense` e `income`;
 - presença dos endpoints esperados no OpenAPI.
+- validação dos parâmetros da query string;
+- rejeição de faixa etária inválida;
+- rejeição de tipo inválido;
+- rejeição de limites negativos;
+- rejeição de valores com mais de duas casas decimais;
+- rejeição de valor mínimo maior que o máximo;
+- fluxo HTTP completo com filtros combinados;
+- documentação dos parâmetros no OpenAPI.
 
 ### 13.4 Verificações do front-end
 
@@ -515,6 +655,7 @@ src/frontend/src/
 │   │   └── usePeople.ts
 │   ├── transactions/
 │   │   ├── components/
+│   │   │   ├── TransactionFilters.tsx
 │   │   │   ├── TransactionForm.tsx
 │   │   │   ├── TransactionsList.tsx
 │   │   │   └── TransactionsSection.tsx
@@ -606,7 +747,20 @@ Responsável por:
 - cadastro de receita ou despesa;
 - entrada e formatação de valores;
 - restrição visual de receita para menores;
-- listagem responsiva das transações.
+- listagem responsiva das transações;
+- seleção dos filtros disponíveis;
+- validação da faixa de valor antes do envio;
+- montagem dos parâmetros da query string;
+- aplicação e limpeza dos filtros;
+- manutenção dos filtros durante a atualização manual;
+- recarregamento da lista após o cadastro de uma transação;
+- estado específico para filtros sem correspondência.
+
+O componente `TransactionFilters.tsx` concentra a interface e as validações iniciais dos filtros.
+
+O cliente `transactionsApi.ts` utiliza `URLSearchParams` para enviar somente os parâmetros que foram preenchidos.
+
+O hook `useTransactions` mantém os filtros efetivamente aplicados e solicita novamente os dados sempre que eles são aplicados, removidos ou atualizados.
 
 A validação visual não substitui a regra definitiva aplicada pelo back-end.
 
@@ -654,6 +808,10 @@ Os hooks são responsáveis por:
 - erros de comunicação;
 - atualização local após operações bem-sucedidas;
 - cancelamento de requisições quando o componente é desmontado.
+- armazenamento dos filtros efetivamente aplicados;
+- atualização dos dados preservando os filtros ativos;
+- limpeza dos filtros;
+- recarregamento da listagem após novas transações;
 
 ### 14.6 Navegação
 
@@ -708,6 +866,11 @@ A interface apresenta:
 - notificações com Sonner;
 - confirmação antes da exclusão de uma pessoa;
 - indicadores visuais durante operações assíncronas.
+- indicação da quantidade de resultados filtrados;
+- estado vazio específico para consultas sem correspondência;
+- botão para limpar filtros;
+- mensagens de validação para faixas monetárias inválidas;
+- notificações após aplicação ou remoção dos filtros.
 
 ## 15. Configuração de ambiente e CORS
 
@@ -799,13 +962,13 @@ Essas decisões só devem ser revistas quando um requisito concreto justificar a
 
 Possíveis evoluções incluem:
 
-- filtros de transações por pessoa;
-- filtros por tipo de transação;
-- filtros por faixa de valor;
 - filtros consistentes nas consultas de pessoas e totais;
-- testes automatizados específicos do front-end;
-- paginação;
+- persistência dos filtros na URL do navegador;
+- paginação das transações;
 - ordenação configurável;
+- busca por descrição;
+- seleção de períodos e datas;
+- testes automatizados específicos do front-end;
 - autenticação e autorização;
 - observabilidade;
 - publicação em ambiente de produção.

@@ -39,13 +39,22 @@ Exemplo válido:
 }
 ```
 
-### 2.3 Menoridade
+### 2.3 Menoridade e maioridade
 
 Uma pessoa é considerada menor de idade quando possui menos de 18 anos.
+
+Uma pessoa é considerada maior de idade quando possui 18 anos ou mais.
 
 A idade não impede o cadastro da pessoa.
 
 A restrição de menoridade é aplicada durante o cadastro de transações.
+
+A classificação também pode ser utilizada na consulta de transações:
+
+| Valor do filtro | Regra |
+|---|---|
+| `minor` | Idade menor que 18 anos |
+| `adult` | Idade igual ou superior a 18 anos |
 
 ### 2.4 Listagem de pessoas
 
@@ -184,9 +193,28 @@ Exemplo:
 145.34 = 14.534 centavos
 ```
 
+Os filtros monetários da listagem possuem regras diferentes do cadastro.
+
+Nos parâmetros `minAmount` e `maxAmount`:
+
+- zero é permitido;
+- valores negativos não são permitidos;
+- são aceitas no máximo duas casas decimais;
+- os limites são inclusivos;
+- o valor mínimo não pode ser maior que o valor máximo.
+
+Exemplo:
+
+```text
+minAmount=100
+maxAmount=500
+```
+
+Nesse caso, são retornadas também as transações com valor exatamente igual a `100` ou `500`.
+
 ### 3.7 Listagem de transações
 
-A listagem deve retornar todas as transações cadastradas.
+Sem filtros, a listagem deve retornar todas as transações cadastradas.
 
 Cada item apresenta:
 
@@ -197,15 +225,113 @@ Cada item apresenta:
 - identificador da pessoa;
 - nome da pessoa.
 
-A listagem atual é ordenada pelo identificador da transação.
+A API ordena a listagem pelo identificador da transação em ordem crescente.
 
-### 3.8 Consulta por identificador
+O front-end pode reorganizar os resultados para apresentar as movimentações mais recentes primeiro.
+
+Quando nenhuma transação está cadastrada, a API retorna uma lista vazia.
+
+Essa distinção é importante porque o serviço da API ordena por `Id` crescente, enquanto a interface reorganiza por `Id` decrescente.
+
+### 3.8 Filtros de transações
+
+A listagem de transações aceita filtros opcionais pela query string.
+
+Filtros disponíveis:
+
+| Parâmetro | Regra |
+|---|---|
+| `personId` | Identificador da pessoa, maior que zero |
+| `ageGroup` | `adult` ou `minor` |
+| `type` | `expense` ou `income` |
+| `minAmount` | Valor mínimo inclusivo |
+| `maxAmount` | Valor máximo inclusivo |
+
+Os filtros:
+
+- são opcionais;
+- podem ser utilizados isoladamente;
+- podem ser combinados;
+- são aplicados simultaneamente quando mais de um é informado.
+
+Exemplo por pessoa:
+
+```http
+GET /api/transactions?personId=1
+```
+
+Exemplo por faixa etária:
+
+```http
+GET /api/transactions?ageGroup=minor
+```
+
+Exemplo por tipo:
+
+```http
+GET /api/transactions?type=expense
+```
+
+Exemplo por faixa de valor:
+
+```http
+GET /api/transactions?minAmount=100&maxAmount=500
+```
+
+Exemplo combinando todos os filtros:
+
+```http
+GET /api/transactions?personId=1&ageGroup=adult&type=expense&minAmount=100&maxAmount=500
+```
+
+Para uma transação ser retornada, ela deve atender a todos os filtros informados.
+
+Quando nenhum registro atende aos filtros, a API retorna:
+
+```json
+[]
+```
+
+Uma consulta por `personId` inexistente também retorna uma lista vazia.
+
+Esse comportamento não retorna `404 Not Found`, pois o endpoint está consultando uma coleção e não um recurso individual.
+
+### 3.9 Validação dos filtros
+
+Filtros inválidos retornam `400 Bad Request`.
+
+São considerados inválidos:
+
+- `personId` igual ou inferior a zero;
+- `ageGroup` diferente de `adult` ou `minor`;
+- `type` diferente de `expense` ou `income`;
+- valor mínimo negativo;
+- valor máximo negativo;
+- valores com mais de duas casas decimais;
+- valor mínimo maior que o valor máximo;
+- parâmetros enviados em formato incompatível com o contrato.
+
+Exemplo inválido:
+
+```http
+GET /api/transactions?minAmount=500&maxAmount=100
+```
+
+A resposta informa:
+
+```text
+O valor mínimo não pode ser maior que o valor máximo.
+```
+
+A validação realizada pelo front-end melhora a experiência do usuário, mas o back-end continua sendo responsável por proteger definitivamente essas regras.
+
+### 3.10 Consulta por identificador
 
 Uma transação pode ser consultada por seu identificador.
 
 Quando o identificador não corresponde a uma transação existente, a API retorna `404 Not Found`.
 
-### 3.9 Edição e exclusão
+### 3.11 Edição e exclusão
 
 A especificação atual não exige:
 
@@ -289,6 +415,9 @@ A integridade é protegida em diferentes níveis.
 - propriedades obrigatórias;
 - limites de valor;
 - tipos permitidos.
+- validação dos filtros da listagem;
+- validação da relação entre valor mínimo e valor máximo;
+- validação das classificações `adult`, `minor`, `expense` e `income`;
 
 ### Domínio
 
@@ -296,6 +425,7 @@ A integridade é protegida em diferentes níveis.
 - normalização;
 - limite de casas decimais;
 - regra de menoridade.
+- definição centralizada da idade de maioridade;
 
 ### Banco de dados
 
@@ -317,7 +447,15 @@ A integridade é protegida em diferentes níveis.
 | Regra de negócio violada | `422 Unprocessable Entity` |
 | Erro inesperado | `500 Internal Server Error` |
 
-As respostas de erro seguem o padrão `ProblemDetails`.
+Na listagem de transações:
+
+- filtros válidos retornam `200 OK`;
+- filtros válidos sem correspondência retornam `200 OK` com uma lista vazia;
+- `personId` inexistente no filtro retorna `200 OK` com uma lista vazia;
+- filtros inválidos retornam `400 Bad Request`;
+- a consulta de uma transação individual inexistente continua retornando `404 Not Found`.
+
+As respostas de erro seguem os padrões `ProblemDetails` e `ValidationProblemDetails`.
 
 ## 7. Casos cobertos pelos testes
 
@@ -351,7 +489,23 @@ As respostas de erro seguem o padrão `ProblemDetails`.
 - pessoa inexistente;
 - listagem;
 - consulta por identificador;
-- serialização textual do tipo.
+- serialização textual do tipo;
+- filtro por pessoa;
+- filtro por receita ou despesa;
+- filtro por maiores de idade;
+- filtro por menores de idade;
+- valor mínimo inclusivo;
+- valor máximo inclusivo;
+- combinação de pessoa, faixa etária, tipo e valores;
+- consulta filtrada sem resultados;
+- pessoa inexistente no filtro;
+- identificador inválido no filtro;
+- faixa etária inválida;
+- tipo inválido na query string;
+- valores negativos nos filtros;
+- filtros monetários com mais de duas casas decimais;
+- valor mínimo maior que o valor máximo;
+- fluxo HTTP completo com filtros combinados.
 
 ### Totais
 
@@ -370,4 +524,10 @@ As respostas de erro seguem o padrão `ProblemDetails`.
 - ausência de pattern numérico indevido;
 - tipo de transação representado como string;
 - valores permitidos `expense` e `income`;
-- presença dos endpoints documentados.
+- presença dos endpoints documentados;
+- presença dos parâmetros `personId`, `ageGroup`, `type`, `minAmount` e `maxAmount`;
+- descrição dos filtros da listagem de transações;
+- documentação dos valores `adult` e `minor`;
+- documentação dos valores `expense` e `income`;
+- indicação de que os limites monetários são inclusivos;
+- resposta `400 Bad Request` para filtros inválidos.
