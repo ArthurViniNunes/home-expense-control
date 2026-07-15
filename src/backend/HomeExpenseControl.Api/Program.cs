@@ -8,6 +8,7 @@ using HomeExpenseControl.Api.Features.Transactions;
 using HomeExpenseControl.Api.Common.OpenApi;
 using HomeExpenseControl.Api.Features.Totals;
 using HomeExpenseControl.Api.Common.Cors;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,7 +40,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi(options =>
 {
-    options.AddSchemaTransformer<OpenApiSchemaConventionTransformer>();
+    options.AddSchemaTransformer<
+        OpenApiSchemaConventionTransformer>();
 
     options.AddDocumentTransformer(
         (document, context, cancellationToken) =>
@@ -53,6 +55,27 @@ builder.Services.AddOpenApi(options =>
                 "API para cadastro de pessoas, transações " +
                 "e consulta de totais financeiros residenciais.";
 
+            document.Tags = new HashSet<OpenApiTag>
+            {
+                new()
+                {
+                    Name = "Pessoas",
+                    Description =
+                        "Cadastro, consulta, listagem e exclusão de pessoas."
+                },
+                new()
+                {
+                    Name = "Transações",
+                    Description =
+                        "Cadastro, consulta e filtragem de receitas e despesas."
+                },
+                new()
+                {
+                    Name = "Totais",
+                    Description =
+                        "Consulta dos totais financeiros individuais e gerais."
+                }
+            };
             return Task.CompletedTask;
         });
 });

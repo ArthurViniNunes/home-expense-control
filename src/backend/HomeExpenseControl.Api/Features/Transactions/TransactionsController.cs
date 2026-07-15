@@ -69,25 +69,56 @@ public sealed class TransactionsController : ControllerBase
     }
 
     /// <summary>
-    /// Lista todas as transações cadastradas.
+    /// Lista as transações cadastradas com filtros opcionais.
     /// </summary>
     /// <remarks>
+    /// Os filtros são opcionais e podem ser combinados.
+    ///
+    /// Filtros disponíveis:
+    ///
+    /// - personId: identificador da pessoa;
+    /// - ageGroup: adult para maiores de idade ou minor para menores;
+    /// - type: expense para despesas ou income para receitas;
+    /// - minAmount: valor mínimo, inclusive;
+    /// - maxAmount: valor máximo, inclusive.
+    ///
+    /// Exemplos:
+    ///
+    /// GET /api/transactions?personId=1
+    ///
+    /// GET /api/transactions?ageGroup=minor
+    ///
+    /// GET /api/transactions?type=expense
+    ///
+    /// GET /api/transactions?minAmount=100&amp;maxAmount=500
+    ///
+    /// GET /api/transactions?personId=1&amp;ageGroup=adult&amp;type=expense&amp;minAmount=100&amp;maxAmount=500
+    ///
+    /// Quando nenhum filtro é informado, todas as transações são retornadas.
+    ///
     /// As transações são apresentadas na ordem de seus identificadores.
     /// </remarks>
+    /// <param name="query">Filtros opcionais da consulta.</param>
     /// <param name="cancellationToken">
     /// Token utilizado para cancelar a operação.
     /// </param>
-    /// <returns>Lista de transações cadastradas.</returns>
+    /// <returns>Lista de transações que atendem aos filtros.</returns>
     /// <response code="200">Transações consultadas com sucesso.</response>
+    /// <response code="400">Um ou mais filtros são inválidos.</response>
     [HttpGet]
     [EndpointName("ListTransactions")]
     [ProducesResponseType(
         typeof(IReadOnlyList<TransactionResponse>),
         StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<TransactionResponse>>> List(
+        [FromQuery] ListTransactionsQuery query,
         CancellationToken cancellationToken)
     {
         var transactions = await _transactionsService.ListAsync(
+            query,
             cancellationToken);
 
         return Ok(transactions);

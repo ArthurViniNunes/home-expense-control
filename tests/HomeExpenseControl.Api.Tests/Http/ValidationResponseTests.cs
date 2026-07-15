@@ -152,4 +152,111 @@ public sealed class ValidationResponseTests
             "O corpo da requisição é obrigatório.",
             bodyErrors[0].GetString());
     }
+
+    [Theory]
+    [InlineData(
+    "/api/transactions?personId=0",
+    "personId",
+    "O identificador da pessoa deve ser maior que zero.")]
+    [InlineData(
+    "/api/transactions?type=other",
+    "type",
+    "O tipo deve ser expense para despesa ou income para receita.")]
+    [InlineData(
+    "/api/transactions?type=1",
+    "type",
+    "O tipo deve ser expense para despesa ou income para receita.")]
+    [InlineData(
+    "/api/transactions?ageGroup=child",
+    "ageGroup",
+    "A faixa etária deve ser minor para menor de idade ou adult para maior de idade.")]
+    [InlineData(
+    "/api/transactions?minAmount=-1",
+    "minAmount",
+    "O valor mínimo não pode ser negativo.")]
+    [InlineData(
+    "/api/transactions?maxAmount=-1",
+    "maxAmount",
+    "O valor máximo não pode ser negativo.")]
+    [InlineData(
+    "/api/transactions?minAmount=10.999",
+    "minAmount",
+    "O valor mínimo deve possuir no máximo 2 casas decimais.")]
+    [InlineData(
+    "/api/transactions?maxAmount=10.999",
+    "maxAmount",
+    "O valor máximo deve possuir no máximo 2 casas decimais.")]
+    public async Task ListTransactions_ShouldReturnBadRequest_WhenFilterIsInvalid(
+    string requestUri,
+    string propertyName,
+    string expectedMessage)
+    {
+        using var response = await _client.GetAsync(requestUri);
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        Assert.Equal(
+            "application/problem+json",
+            response.Content.Headers.ContentType?.MediaType);
+
+        await using var responseStream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(responseStream);
+
+        var root = document.RootElement;
+
+        Assert.Equal(
+            "Dados inválidos",
+            root.GetProperty("title").GetString());
+
+        Assert.Equal(
+            400,
+            root.GetProperty("status").GetInt32());
+
+        var errors = root.GetProperty("errors");
+
+        Assert.True(
+            errors.TryGetProperty(
+                propertyName,
+                out var propertyErrors));
+
+        Assert.Equal(
+            expectedMessage,
+            propertyErrors[0].GetString());
+    }
+
+    [Fact]
+    public async Task ListTransactions_ShouldReturnBadRequest_WhenMinimumAmountExceedsMaximum()
+    {
+        using var response = await _client.GetAsync(
+            "/api/transactions?minAmount=500&maxAmount=100");
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        await using var responseStream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(responseStream);
+
+        var errors = document.RootElement
+            .GetProperty("errors");
+
+        Assert.True(
+            errors.TryGetProperty(
+                "minAmount",
+                out var minimumAmountErrors));
+
+        Assert.Contains(
+            minimumAmountErrors.EnumerateArray(),
+            error =>
+                error.GetString() ==
+                "O valor mínimo não pode ser maior que o valor máximo.");
+    }
 }

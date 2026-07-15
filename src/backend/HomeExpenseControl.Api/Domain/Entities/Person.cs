@@ -7,6 +7,8 @@ public sealed class Person
 {
     public const int MaxNameLength = 120;
     public const int MinNameLength = 2;
+    public const int AdultAge = 18;
+
 
     // Construtor exigido pelo Entity Framework Core.
     private Person()
@@ -25,7 +27,7 @@ public sealed class Person
 
     public int Age { get; private set; }
 
-    public bool IsMinor => Age < 18;
+    public bool IsMinor => Age < AdultAge;
 
     public ICollection<Transaction> Transactions { get; private set; } =
     new List<Transaction>();

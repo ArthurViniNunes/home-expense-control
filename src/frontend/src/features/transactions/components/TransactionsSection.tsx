@@ -2,6 +2,7 @@ import {
   AlertCircle,
   ArrowLeftRight,
   RefreshCw,
+  SearchX,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -19,19 +20,25 @@ import { getApiErrorMessage } from '@/services/apiError'
 import type {
   CreateTransactionInput,
   Transaction,
+  TransactionFilters as TransactionFiltersValue,
 } from '../transactionTypes'
 import { useTransactions } from '../useTransactions'
 import { TransactionForm } from './TransactionForm'
 import { TransactionsList } from './TransactionsList'
+import { TransactionFilters } from './TransactionFilters'
 
 export function TransactionsSection() {
   const {
     transactions,
     people,
+    filters,
+    hasActiveFilters,
     isLoading,
     isSubmitting,
     loadError,
     loadData,
+    applyFilters,
+    clearFilters,
     createTransaction,
   } = useTransactions()
 
@@ -80,6 +87,44 @@ export function TransactionsSection() {
     }
   }
 
+  async function handleApplyFilters(
+    nextFilters: TransactionFiltersValue,
+  ) {
+    try {
+      await applyFilters(nextFilters)
+
+      toast.success('Filtros aplicados')
+    } catch (error) {
+      toast.error(
+        'Não foi possível aplicar os filtros',
+        {
+          description: getApiErrorMessage(
+            error,
+            'Verifique os filtros e tente novamente.',
+          ),
+        },
+      )
+    }
+  }
+
+  async function handleClearFilters() {
+    try {
+      await clearFilters()
+
+      toast.success('Filtros removidos')
+    } catch (error) {
+      toast.error(
+        'Não foi possível remover os filtros',
+        {
+          description: getApiErrorMessage(
+            error,
+            'Tente novamente em alguns instantes.',
+          ),
+        },
+      )
+    }
+  }
+
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <aside className="lg:sticky lg:top-6">
@@ -105,13 +150,20 @@ export function TransactionsSection() {
             <CardDescription>
               {isLoading && transactions.length === 0
                 ? 'Carregando movimentações...'
-                : transactions.length === 0
-                  ? 'Nenhuma movimentação registrada.'
-                  : `${transactions.length} ${
-                      transactions.length === 1
-                        ? 'transação registrada'
-                        : 'transações registradas'
-                    }.`}
+                : transactions.length === 0 &&
+                    hasActiveFilters
+                  ? 'Nenhuma transação encontrada com os filtros aplicados.'
+                  : transactions.length === 0
+                    ? 'Nenhuma movimentação registrada.'
+                    : `${transactions.length} ${
+                        transactions.length === 1
+                          ? 'transação encontrada'
+                          : 'transações encontradas'
+                      }${
+                        hasActiveFilters
+                          ? ' com os filtros aplicados'
+                          : ''
+                      }.`}
             </CardDescription>
           </div>
 
@@ -138,6 +190,15 @@ export function TransactionsSection() {
         </CardHeader>
 
         <CardContent>
+          <TransactionFilters
+            people={people}
+            filters={filters}
+            hasActiveFilters={hasActiveFilters}
+            isLoading={isLoading}
+            onApply={handleApplyFilters}
+            onClear={handleClearFilters}
+          />
+
           {isLoading && transactions.length === 0 ? (
             <TransactionsListSkeleton />
           ) : loadError &&
@@ -147,6 +208,12 @@ export function TransactionsSection() {
               isLoading={isLoading}
               onRetry={handleRefresh}
             />
+          ) : transactions.length === 0 &&
+            hasActiveFilters ? (
+            <TransactionsFilteredEmptyState
+              isLoading={isLoading}
+              onClear={handleClearFilters}
+            />
           ) : (
             <TransactionsList
               transactions={transactions}
@@ -154,6 +221,48 @@ export function TransactionsSection() {
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+interface TransactionsFilteredEmptyStateProps {
+  isLoading: boolean
+  onClear: () => Promise<void>
+}
+
+function TransactionsFilteredEmptyState({
+  isLoading,
+  onClear,
+}: TransactionsFilteredEmptyStateProps) {
+  return (
+    <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
+      <div className="flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+        <SearchX
+          className="size-6"
+          aria-hidden="true"
+        />
+      </div>
+
+      <h3 className="mt-4 font-medium">
+        Nenhuma transação encontrada
+      </h3>
+
+      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+        Não existem transações que atendam aos
+        filtros selecionados.
+      </p>
+
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-5"
+        disabled={isLoading}
+        onClick={() => {
+          void onClear()
+        }}
+      >
+        Limpar filtros
+      </Button>
     </div>
   )
 }
