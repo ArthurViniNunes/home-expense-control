@@ -55,7 +55,7 @@ builder.Services.AddOpenApi(options =>
                 "API para cadastro de pessoas, transações " +
                 "e consulta de totais financeiros residenciais.";
 
-            document.Tags = new HashSet<OpenApiTag>
+            document.Tags = new List<OpenApiTag>
             {
                 new()
                 {
@@ -76,7 +76,6 @@ builder.Services.AddOpenApi(options =>
                         "Consulta dos totais financeiros individuais e gerais."
                 }
             };
-
             return Task.CompletedTask;
         });
 });
