@@ -79,7 +79,7 @@ public sealed class TransactionsServiceTests
         await using var connection = await CreateOpenConnectionAsync();
         await using var context = await CreateContextAsync(connection);
 
-        var person = new Person("Pedro Souza", 17);
+        var person = new Person("Carlos Souza", 17);
         context.People.Add(person);
         await context.SaveChangesAsync();
 
@@ -129,6 +129,7 @@ public sealed class TransactionsServiceTests
         var service = new TransactionsService(context);
 
         var result = await service.ListAsync(
+            new ListTransactionsQuery(),
             CancellationToken.None);
 
         Assert.Equal(2, result.Count);
@@ -159,9 +160,275 @@ public sealed class TransactionsServiceTests
         var service = new TransactionsService(context);
 
         var result = await service.ListAsync(
+            new ListTransactionsQuery(),
             CancellationToken.None);
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldFilterTransactionsByPersonId()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var scenario = await CreateFilterScenarioAsync(context);
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            PersonId = scenario.Arthur.Id
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        Assert.Equal(3, result.Count);
+
+        Assert.All(
+            result,
+            transaction =>
+                Assert.Equal(
+                    scenario.Arthur.Id,
+                    transaction.Person.Id));
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldFilterTransactionsByType()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        await CreateFilterScenarioAsync(context);
+
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            Type = "expense"
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        Assert.Equal(4, result.Count);
+
+        Assert.All(
+            result,
+            transaction =>
+                Assert.Equal(
+                    TransactionType.Expense,
+                    transaction.Type));
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldIncludeMinimumAmountBoundary()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        await CreateFilterScenarioAsync(context);
+
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            MinAmount = 150m
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        Assert.Equal(4, result.Count);
+
+        Assert.Contains(
+            result,
+            transaction =>
+                transaction.Amount == 150m);
+
+        Assert.All(
+            result,
+            transaction =>
+                Assert.True(transaction.Amount >= 150m));
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldIncludeMaximumAmountBoundary()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        await CreateFilterScenarioAsync(context);
+
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            MaxAmount = 150m
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        Assert.Equal(3, result.Count);
+
+        Assert.Contains(
+            result,
+            transaction =>
+                transaction.Amount == 150m);
+
+        Assert.All(
+            result,
+            transaction =>
+                Assert.True(transaction.Amount <= 150m));
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldCombineAllTransactionFilters()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var scenario = await CreateFilterScenarioAsync(context);
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            PersonId = scenario.Arthur.Id,
+            Type = "expense",
+            MinAmount = 100m,
+            MaxAmount = 200m
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        var transaction = Assert.Single(result);
+
+        Assert.Equal(
+            "Energia Arthur",
+            transaction.Description);
+
+        Assert.Equal(150m, transaction.Amount);
+
+        Assert.Equal(
+            TransactionType.Expense,
+            transaction.Type);
+
+        Assert.Equal(
+            scenario.Arthur.Id,
+            transaction.Person.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldReturnEmptyList_WhenFiltersDoNotMatch()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        await CreateFilterScenarioAsync(context);
+
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            PersonId = 999
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldFilterTransactionsByMinorAgeGroup()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var scenario = await CreateFilterScenarioAsync(context);
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            AgeGroup = "minor"
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        var transaction = Assert.Single(result);
+
+        Assert.Equal(
+            scenario.Carlos.Id,
+            transaction.Person.Id);
+
+        Assert.Equal(
+            "Material escolar Carlos",
+            transaction.Description);
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldFilterTransactionsByAdultAgeGroup()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        await CreateFilterScenarioAsync(context);
+
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            AgeGroup = "adult"
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        Assert.Equal(5, result.Count);
+
+        Assert.All(
+            result,
+            transaction =>
+                Assert.NotEqual(
+                    "Carlos Souza",
+                    transaction.Person.Name));
+    }
+
+    [Fact]
+    public async Task ListAsync_ShouldCombinePersonAndAgeGroupFilters()
+    {
+        await using var connection = await CreateOpenConnectionAsync();
+        await using var context = await CreateContextAsync(connection);
+
+        var scenario = await CreateFilterScenarioAsync(context);
+        var service = new TransactionsService(context);
+
+        var query = new ListTransactionsQuery
+        {
+            PersonId = scenario.Carlos.Id,
+            AgeGroup = "minor"
+        };
+
+        var result = await service.ListAsync(
+            query,
+            CancellationToken.None);
+
+        var transaction = Assert.Single(result);
+
+        Assert.Equal(
+            scenario.Carlos.Id,
+            transaction.Person.Id);
     }
 
     [Fact]
@@ -179,6 +446,72 @@ public sealed class TransactionsServiceTests
         Assert.Null(result);
     }
 
+    private static async Task<FilterScenario> CreateFilterScenarioAsync(
+    AppDbContext context)
+    {
+        var arthur = new Person(
+            "Arthur Nunes",
+            30);
+
+        var ana = new Person(
+            "Ana Souza",
+            28);
+
+        var carlos = new Person(
+            "Carlos Souza",
+            17);
+
+        context.People.AddRange(
+            arthur,
+            ana,
+            carlos);
+
+        await context.SaveChangesAsync();
+
+        context.Transactions.AddRange(
+            new Transaction(
+                "Salário Arthur",
+                3000m,
+                TransactionType.Income,
+                arthur),
+            new Transaction(
+                "Energia Arthur",
+                150m,
+                TransactionType.Expense,
+                arthur),
+            new Transaction(
+                "Mercado Arthur",
+                450m,
+                TransactionType.Expense,
+                arthur),
+            new Transaction(
+                "Salário Ana",
+                2500m,
+                TransactionType.Income,
+                ana),
+            new Transaction(
+                "Internet Ana",
+                100m,
+                TransactionType.Expense,
+                ana),
+            new Transaction(
+                "Material escolar Carlos",
+                50m,
+                TransactionType.Expense,
+                carlos));
+
+        await context.SaveChangesAsync();
+
+        return new FilterScenario(
+            arthur,
+            ana,
+            carlos);
+    }
+
+    private sealed record FilterScenario(
+        Person Arthur,
+        Person Ana,
+        Person Carlos);
     private static async Task<SqliteConnection> CreateOpenConnectionAsync()
     {
         var connection = new SqliteConnection("Data Source=:memory:");

@@ -289,6 +289,101 @@ public sealed class CriticalFlowsTests
                 .GetDecimal());
     }
 
+    [Fact]
+    public async Task ListTransactions_ShouldApplyCombinedFiltersFromQueryString()
+    {
+        var adultPersonId = await CreatePersonAsync(
+            "Adulto dos filtros",
+            30);
+
+        var minorPersonId = await CreatePersonAsync(
+            "Menor dos filtros",
+            17);
+
+        await CreateTransactionAsync(
+            "Despesa dentro da faixa",
+            150m,
+            "expense",
+            adultPersonId);
+
+        await CreateTransactionAsync(
+            "Despesa abaixo da faixa",
+            50m,
+            "expense",
+            adultPersonId);
+
+        await CreateTransactionAsync(
+            "Despesa acima da faixa",
+            500m,
+            "expense",
+            adultPersonId);
+
+        await CreateTransactionAsync(
+            "Receita do adulto",
+            150m,
+            "income",
+            adultPersonId);
+
+        await CreateTransactionAsync(
+            "Despesa do menor",
+            150m,
+            "expense",
+            minorPersonId);
+
+        using var response = await _client.GetAsync(
+            "/api/transactions" +
+            $"?personId={adultPersonId}" +
+            "&ageGroup=adult" +
+            "&type=expense" +
+            "&minAmount=100" +
+            "&maxAmount=200");
+
+        response.EnsureSuccessStatusCode();
+
+        await using var responseStream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(responseStream);
+
+        var transactions = document.RootElement;
+
+        Assert.Equal(
+            JsonValueKind.Array,
+            transactions.ValueKind);
+
+        Assert.Equal(
+            1,
+            transactions.GetArrayLength());
+
+        var transaction = transactions[0];
+
+        Assert.Equal(
+            "Despesa dentro da faixa",
+            transaction
+                .GetProperty("description")
+                .GetString());
+
+        Assert.Equal(
+            150m,
+            transaction
+                .GetProperty("amount")
+                .GetDecimal());
+
+        Assert.Equal(
+            "expense",
+            transaction
+                .GetProperty("type")
+                .GetString());
+
+        Assert.Equal(
+            adultPersonId,
+            transaction
+                .GetProperty("person")
+                .GetProperty("id")
+                .GetInt32());
+    }
+
     private async Task<int> CreatePersonAsync(
         string name,
         int age)
