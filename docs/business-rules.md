@@ -47,7 +47,7 @@ Uma pessoa é considerada maior de idade quando possui 18 anos ou mais.
 
 A idade não impede o cadastro da pessoa.
 
-A restrição de menoridade é aplicada durante o cadastro de transações.
+A restrição de menoridade é aplicada durante o cadastro e a edição de transações.
 
 A classificação também pode ser utilizada na consulta de transações:
 
@@ -147,9 +147,11 @@ O banco também protege o relacionamento por meio de chave estrangeira.
 
 ### 3.5 Restrição para menores de idade
 
-Uma pessoa menor de 18 anos pode cadastrar despesas.
+Uma pessoa menor de 18 anos pode possuir despesas.
 
-Uma pessoa menor de 18 anos não pode cadastrar receitas.
+Uma pessoa menor de 18 anos não pode possuir receitas.
+
+A regra é aplicada tanto no cadastro quanto na edição de uma transação.
 
 | Idade | Tipo | Resultado |
 |---:|---|---|
@@ -158,7 +160,7 @@ Uma pessoa menor de 18 anos não pode cadastrar receitas.
 | 18 | `expense` | Permitido |
 | 18 | `income` | Permitido |
 
-Uma tentativa de cadastrar receita para menor de idade retorna `422 Unprocessable Entity`.
+Uma tentativa de cadastrar ou alterar uma transação para receita vinculada a uma pessoa menor de idade retorna `422 Unprocessable Entity`.
 
 ### 3.6 Valores monetários
 
@@ -331,14 +333,47 @@ Uma transação pode ser consultada por seu identificador.
 
 Quando o identificador não corresponde a uma transação existente, a API retorna `404 Not Found`.
 
-### 3.11 Edição e exclusão
+### 3.11 Edição de transação
 
-A especificação atual não exige:
+Uma transação pode ser editada por seu identificador.
 
-- edição de transações;
-- exclusão direta de transações.
+A edição permite substituir:
 
-As transações são excluídas automaticamente quando sua pessoa é removida.
+- descrição;
+- valor;
+- tipo;
+- pessoa vinculada.
+
+Todas as regras aplicadas no cadastro também são reaplicadas na edição:
+
+- descrição obrigatória, normalizada e limitada a 200 caracteres;
+- valor maior que zero e com no máximo duas casas decimais;
+- tipo `expense` ou `income`;
+- pessoa vinculada existente;
+- proibição de receita para pessoa menor de 18 anos.
+
+Os novos dados são validados antes da alteração do estado da entidade. Quando alguma regra é violada, a transação mantém seus dados anteriores.
+
+Quando a transação informada não existe, a API retorna `404 Not Found`.
+
+Quando a nova pessoa vinculada não existe, a API retorna `404 Not Found`.
+
+Uma edição concluída retorna `200 OK` com a representação atualizada da transação.
+
+### 3.12 Exclusão direta de transação
+
+Uma transação pode ser excluída diretamente por seu identificador.
+
+A exclusão direta remove somente a transação selecionada:
+
+- a pessoa vinculada permanece cadastrada;
+- as demais transações da pessoa permanecem inalteradas.
+
+Quando a transação informada não existe, a API retorna `404 Not Found`.
+
+Uma exclusão concluída retorna `204 No Content`.
+
+A exclusão em cascata continua válida: quando uma pessoa é removida, todas as transações vinculadas a ela também são excluídas automaticamente.
 
 ## 4. Totais
 
@@ -414,18 +449,20 @@ A integridade é protegida em diferentes níveis.
 - validação de formato;
 - propriedades obrigatórias;
 - limites de valor;
-- tipos permitidos.
+- tipos permitidos;
 - validação dos filtros da listagem;
 - validação da relação entre valor mínimo e valor máximo;
 - validação das classificações `adult`, `minor`, `expense` e `income`;
+- validação das requisições de criação e edição.
 
 ### Domínio
 
 - proteção contra estados inválidos;
 - normalização;
 - limite de casas decimais;
-- regra de menoridade.
+- regra de menoridade;
 - definição centralizada da idade de maioridade;
+- atualização atômica da transação após a validação integral dos novos dados.
 
 ### Banco de dados
 
@@ -440,7 +477,7 @@ A integridade é protegida em diferentes níveis.
 | Situação | Status |
 |---|---:|
 | Recurso criado | `201 Created` |
-| Consulta concluída | `200 OK` |
+| Consulta ou atualização concluída | `200 OK` |
 | Exclusão concluída | `204 No Content` |
 | Dados ou formato inválido | `400 Bad Request` |
 | Pessoa ou transação inexistente | `404 Not Found` |
@@ -454,6 +491,15 @@ Na listagem de transações:
 - `personId` inexistente no filtro retorna `200 OK` com uma lista vazia;
 - filtros inválidos retornam `400 Bad Request`;
 - a consulta de uma transação individual inexistente continua retornando `404 Not Found`.
+
+Na edição e na exclusão direta de transações:
+
+- identificadores iguais ou inferiores a zero retornam `400 Bad Request`;
+- transações inexistentes retornam `404 Not Found`;
+- uma pessoa inexistente informada na edição retorna `404 Not Found`;
+- uma regra de negócio violada durante a edição retorna `422 Unprocessable Entity`;
+- uma edição válida retorna `200 OK`;
+- uma exclusão válida retorna `204 No Content`.
 
 As respostas de erro seguem os padrões `ProblemDetails` e `ValidationProblemDetails`.
 
@@ -487,6 +533,19 @@ As respostas de erro seguem os padrões `ProblemDetails` e `ValidationProblemDet
 - valor com mais de duas casas decimais;
 - tipo inválido;
 - pessoa inexistente;
+- edição válida;
+- normalização da descrição durante a edição;
+- troca da pessoa vinculada;
+- edição para receita de menor rejeitada sem alterar o estado original;
+- edição com valor de precisão inválida rejeitada sem alterar o estado original;
+- edição de transação inexistente;
+- edição com pessoa inexistente;
+- exclusão direta;
+- exclusão direta preservando a pessoa e suas demais transações;
+- exclusão de transação inexistente;
+- identificadores inválidos em edição e exclusão;
+- corpo inválido na edição;
+- tipo numérico rejeitado na edição;
 - listagem;
 - consulta por identificador;
 - serialização textual do tipo;
@@ -530,4 +589,9 @@ As respostas de erro seguem os padrões `ProblemDetails` e `ValidationProblemDet
 - documentação dos valores `adult` e `minor`;
 - documentação dos valores `expense` e `income`;
 - indicação de que os limites monetários são inclusivos;
-- resposta `400 Bad Request` para filtros inválidos.
+- resposta `400 Bad Request` para filtros inválidos;
+- documentação de `PUT /api/transactions/{id}`;
+- documentação de `DELETE /api/transactions/{id}`;
+- respostas `200`, `204`, `400`, `404` e `422` dos novos endpoints;
+- schema `UpdateTransactionRequest`;
+- ordem funcional das tags Pessoas, Transações e Totais.
