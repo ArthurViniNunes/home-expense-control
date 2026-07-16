@@ -120,11 +120,11 @@ public sealed class TransactionsController : ControllerBase
         StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<TransactionResponse>> Update(
         [FromRoute]
-    [Range(
-        1,
-        int.MaxValue,
-        ErrorMessage = "O identificador deve ser maior que zero.")]
-    int id,
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
         [FromBody] UpdateTransactionRequest request,
         CancellationToken cancellationToken)
     {
