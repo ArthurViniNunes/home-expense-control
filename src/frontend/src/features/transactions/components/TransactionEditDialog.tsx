@@ -1,23 +1,27 @@
 import {
-  useState,
-  type FormEvent,
-} from 'react'
-import {
   ArrowDownRight,
   ArrowUpRight,
   Info,
   LoaderCircle,
-  ReceiptText,
+  Pencil,
+  Save,
 } from 'lucide-react'
+import {
+  type FormEvent,
+  useEffect,
+  useState,
+} from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -30,35 +34,45 @@ import {
 import type { Person } from '@/features/people/peopleTypes'
 import { getApiErrorMessage } from '@/services/apiError'
 
-import type {
-  CreateTransactionInput,
-  Transaction,
-  TransactionType,
-} from '../transactionTypes'
-
 import {
   formatTransactionAmount,
   parseTransactionAmount,
   type TransactionFormErrors,
   validateTransactionDraft,
 } from '../transactionFormUtils'
+import type {
+  Transaction,
+  TransactionType,
+  UpdateTransactionInput,
+} from '../transactionTypes'
 
-interface TransactionFormProps {
+interface TransactionEditDialogProps {
+  transaction: Transaction
   people: Person[]
-  isSubmitting: boolean
-  onSubmit: (
-    input: CreateTransactionInput,
+  isUpdating: boolean
+  onUpdate: (
+    id: number,
+    input: UpdateTransactionInput,
   ) => Promise<Transaction>
 }
 
-export function TransactionForm({
+export function TransactionEditDialog({
+  transaction,
   people,
-  isSubmitting,
-  onSubmit,
-}: TransactionFormProps) {
-  const [personId, setPersonId] = useState('')
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
+  isUpdating,
+  onUpdate,
+}: TransactionEditDialogProps) {
+  const [open, setOpen] = useState(false)
+
+  const [personId, setPersonId] =
+    useState('')
+
+  const [description, setDescription] =
+    useState('')
+
+  const [amount, setAmount] =
+    useState('')
+
   const [type, setType] =
     useState<TransactionType>('expense')
 
@@ -66,22 +80,33 @@ export function TransactionForm({
     useState<TransactionFormErrors>({})
 
   const selectedPerson = people.find(
-    (person) => person.id === Number(personId),
+    (person) =>
+      person.id === Number(personId),
   )
 
-  const hasPeople = people.length > 0
   const isIncomeDisabled =
     selectedPerson?.isMinor === true
 
-  function validate(): TransactionFormErrors {
-    return validateTransactionDraft({
-      people,
-      personId,
-      description,
-      amount,
-      type,
-    })
-  }
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    setPersonId(
+      transaction.person.id.toString(),
+    )
+
+    setDescription(transaction.description)
+
+    setAmount(
+      formatTransactionAmount(
+        transaction.amount,
+      ),
+    )
+
+    setType(transaction.type)
+    setErrors({})
+  }, [open, transaction])
 
   function handlePersonChange(value: string) {
     setPersonId(value)
@@ -106,13 +131,18 @@ export function TransactionForm({
   }
 
   function handleAmountBlur() {
-    const parsedAmount = parseTransactionAmount(amount)
+    const parsedAmount =
+      parseTransactionAmount(amount)
 
     if (
       parsedAmount !== null &&
       parsedAmount > 0
     ) {
-      setAmount(formatTransactionAmount(parsedAmount))
+      setAmount(
+        formatTransactionAmount(
+          parsedAmount,
+        ),
+      )
     }
   }
 
@@ -121,16 +151,25 @@ export function TransactionForm({
   ) {
     event.preventDefault()
 
-    const validationErrors = validate()
+    const validationErrors =
+      validateTransactionDraft({
+        people,
+        personId,
+        description,
+        amount,
+        type,
+      })
 
     if (
-      Object.keys(validationErrors).length > 0
+      Object.keys(validationErrors).length >
+      0
     ) {
       setErrors(validationErrors)
       return
     }
 
-    const parsedAmount = parseTransactionAmount(amount)
+    const parsedAmount =
+      parseTransactionAmount(amount)
 
     if (parsedAmount === null) {
       return
@@ -139,88 +178,92 @@ export function TransactionForm({
     setErrors({})
 
     try {
-      await onSubmit({
+      await onUpdate(transaction.id, {
         personId: Number(personId),
         description: description.trim(),
         amount:
-          Math.round(parsedAmount * 100) / 100,
+          Math.round(parsedAmount * 100) /
+          100,
         type,
       })
 
-      setDescription('')
-      setAmount('')
-      setType('expense')
+      setOpen(false)
     } catch (error) {
       setErrors({
         form: getApiErrorMessage(
           error,
-          'Não foi possível registrar a transação.',
+          'Não foi possível atualizar a transação.',
         ),
       })
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="mb-1 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <ReceiptText
-            className="size-5"
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!isUpdating) {
+          setOpen(nextOpen)
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          aria-label={`Editar ${transaction.description}`}
+        >
+          <Pencil
+            className="size-4"
             aria-hidden="true"
           />
-        </div>
+        </Button>
+      </DialogTrigger>
 
-        <CardTitle>Nova transação</CardTitle>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            Editar transação
+          </DialogTitle>
 
-        <CardDescription>
-          Registre uma receita ou despesa para uma
-          pessoa cadastrada.
-        </CardDescription>
-      </CardHeader>
+          <DialogDescription>
+            Atualize os dados da movimentação
+            selecionada.
+          </DialogDescription>
+        </DialogHeader>
 
-      <CardContent>
         <form
           className="space-y-5"
           onSubmit={handleSubmit}
           noValidate
         >
-          {errors.form && (
+          {errors.form ? (
             <div
               className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
               role="alert"
             >
               {errors.form}
             </div>
-          )}
-
-          {!hasPeople && (
-            <div className="flex gap-3 rounded-lg border bg-muted/40 p-4">
-              <Info
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-
-              <p className="text-sm leading-6 text-muted-foreground">
-                Cadastre pelo menos uma pessoa antes de
-                registrar uma transação.
-              </p>
-            </div>
-          )}
+          ) : null}
 
           <div className="space-y-2">
-            <Label htmlFor="transaction-person">
+            <Label
+              htmlFor={`transaction-edit-person-${transaction.id}`}
+            >
               Pessoa
             </Label>
 
             <Select
               value={personId}
-              disabled={
-                isSubmitting || !hasPeople
+              disabled={isUpdating}
+              onValueChange={
+                handlePersonChange
               }
-              onValueChange={handlePersonChange}
             >
               <SelectTrigger
-                id="transaction-person"
+                id={`transaction-edit-person-${transaction.id}`}
                 className="w-full"
                 aria-invalid={Boolean(
                   errors.personId,
@@ -233,7 +276,7 @@ export function TransactionForm({
                 {people.map((person) => (
                   <SelectItem
                     key={person.id}
-                    value={String(person.id)}
+                    value={person.id.toString()}
                   >
                     <span>{person.name}</span>
 
@@ -249,29 +292,28 @@ export function TransactionForm({
               <p className="text-xs text-destructive">
                 {errors.personId}
               </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                A transação será vinculada a esta
-                pessoa.
-              </p>
-            )}
+            ) : null}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="transaction-description">
+            <Label
+              htmlFor={`transaction-edit-description-${transaction.id}`}
+            >
               Descrição
             </Label>
 
             <Input
-              id="transaction-description"
+              id={`transaction-edit-description-${transaction.id}`}
               value={description}
+              disabled={isUpdating}
               placeholder="Ex.: Conta de energia"
-              disabled={isSubmitting}
               aria-invalid={Boolean(
                 errors.description,
               )}
               onChange={(event) => {
-                setDescription(event.target.value)
+                setDescription(
+                  event.target.value,
+                )
 
                 setErrors((current) => ({
                   ...current,
@@ -285,16 +327,13 @@ export function TransactionForm({
               <p className="text-xs text-destructive">
                 {errors.description}
               </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Identifique de forma clara a
-                movimentação.
-              </p>
-            )}
+            ) : null}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="transaction-amount">
+            <Label
+              htmlFor={`transaction-edit-amount-${transaction.id}`}
+            >
               Valor
             </Label>
 
@@ -304,13 +343,15 @@ export function TransactionForm({
               </span>
 
               <Input
-                id="transaction-amount"
+                id={`transaction-edit-amount-${transaction.id}`}
                 className="pl-10"
                 value={amount}
+                disabled={isUpdating}
                 inputMode="decimal"
                 placeholder="0,00"
-                disabled={isSubmitting}
-                aria-invalid={Boolean(errors.amount)}
+                aria-invalid={Boolean(
+                  errors.amount,
+                )}
                 onBlur={handleAmountBlur}
                 onChange={(event) => {
                   setAmount(event.target.value)
@@ -337,13 +378,15 @@ export function TransactionForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="transaction-type">
+            <Label
+              htmlFor={`transaction-edit-type-${transaction.id}`}
+            >
               Tipo
             </Label>
 
             <Select
               value={type}
-              disabled={isSubmitting}
+              disabled={isUpdating}
               onValueChange={(value) => {
                 setType(
                   value as TransactionType,
@@ -357,9 +400,11 @@ export function TransactionForm({
               }}
             >
               <SelectTrigger
-                id="transaction-type"
+                id={`transaction-edit-type-${transaction.id}`}
                 className="w-full"
-                aria-invalid={Boolean(errors.type)}
+                aria-invalid={Boolean(
+                  errors.type,
+                )}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -404,48 +449,53 @@ export function TransactionForm({
                 />
 
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Como {selectedPerson?.name} é menor
-                  de idade, apenas despesas podem ser
-                  registradas.
+                  Como {selectedPerson?.name} é
+                  menor de idade, apenas despesas
+                  podem ser registradas.
                 </p>
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Escolha como a movimentação afeta o
-                saldo.
-              </p>
-            )}
+            ) : null}
           </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={
-              isSubmitting || !hasPeople
-            }
-          >
-            {isSubmitting ? (
-              <>
-                <LoaderCircle
-                  className="size-4 animate-spin"
-                  aria-hidden="true"
-                />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isUpdating}
+              onClick={() => {
+                setOpen(false)
+              }}
+            >
+              Cancelar
+            </Button>
 
-                Registrando...
-              </>
-            ) : (
-              <>
-                <ReceiptText
-                  className="size-4"
-                  aria-hidden="true"
-                />
+            <Button
+              type="submit"
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <LoaderCircle
+                    className="size-4 animate-spin"
+                    aria-hidden="true"
+                  />
 
-                Registrar transação
-              </>
-            )}
-          </Button>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save
+                    className="size-4"
+                    aria-hidden="true"
+                  />
+
+                  Salvar alterações
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   )
 }
