@@ -279,11 +279,11 @@ public sealed class TransactionsController : ControllerBase
         StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute]
-    [Range(
-        1,
-        int.MaxValue,
-        ErrorMessage = "O identificador deve ser maior que zero.")]
-    int id,
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
         CancellationToken cancellationToken)
     {
         await _transactionsService.DeleteAsync(
