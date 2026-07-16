@@ -384,6 +384,99 @@ public sealed class CriticalFlowsTests
                 .GetInt32());
     }
 
+    [Fact]
+    public async Task UpdateTransaction_ShouldReturnNotFound_WhenTransactionDoesNotExist()
+    {
+        var personId =
+            await CreatePersonAsync(
+                "Pessoa para edição inexistente",
+                35);
+
+        using var response =
+            await _client.PutAsJsonAsync(
+                $"/api/transactions/{int.MaxValue}",
+                new
+                {
+                    description = "Conta atualizada",
+                    amount = 200m,
+                    type = "expense",
+                    personId
+                });
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_ShouldReturnNotFound_WhenPersonDoesNotExist()
+    {
+        var personId =
+            await CreatePersonAsync(
+                "Pessoa original da edição",
+                35);
+
+        var transactionId =
+            await CreateTransactionAsync(
+                "Conta original",
+                125.90m,
+                "expense",
+                personId);
+
+        using var response =
+            await _client.PutAsJsonAsync(
+                $"/api/transactions/{transactionId}",
+                new
+                {
+                    description = "Conta atualizada",
+                    amount = 200m,
+                    type = "expense",
+                    personId = int.MaxValue
+                });
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            response.StatusCode);
+
+        using var persistedResponse =
+            await _client.GetAsync(
+                $"/api/transactions/{transactionId}");
+
+        persistedResponse.EnsureSuccessStatusCode();
+
+        await using var stream =
+            await persistedResponse.Content
+                .ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        Assert.Equal(
+            "Conta original",
+            document.RootElement
+                .GetProperty("description")
+                .GetString());
+
+        Assert.Equal(
+            personId,
+            document.RootElement
+                .GetProperty("person")
+                .GetProperty("id")
+                .GetInt32());
+    }
+
+    [Fact]
+    public async Task DeleteTransaction_ShouldReturnNotFound_WhenTransactionDoesNotExist()
+    {
+        using var response =
+            await _client.DeleteAsync(
+                $"/api/transactions/{int.MaxValue}");
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            response.StatusCode);
+    }
+
     private async Task<int> CreatePersonAsync(
         string name,
         int age)
@@ -438,5 +531,225 @@ public sealed class CriticalFlowsTests
         return document.RootElement
             .GetProperty("id")
             .GetInt32();
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_ShouldPersistChanges_WhenRequestIsValid()
+    {
+        var originalPersonId =
+            await CreatePersonAsync(
+                "Carlos da atualização",
+                35);
+
+        var newPersonId =
+            await CreatePersonAsync(
+                "Maria da atualização",
+                28);
+
+        var transactionId =
+            await CreateTransactionAsync(
+                "Conta de energia",
+                125.90m,
+                "expense",
+                originalPersonId);
+
+        using var updateResponse =
+            await _client.PutAsJsonAsync(
+                $"/api/transactions/{transactionId}",
+                new
+                {
+                    description =
+                        "  Salário atualizado  ",
+                    amount = 3500m,
+                    type = "income",
+                    personId = newPersonId
+                });
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            updateResponse.StatusCode);
+
+        await using var updateStream =
+            await updateResponse.Content
+                .ReadAsStreamAsync();
+
+        using var updateDocument =
+            await JsonDocument.ParseAsync(
+                updateStream);
+
+        var updatedTransaction =
+            updateDocument.RootElement;
+
+        Assert.Equal(
+            transactionId,
+            updatedTransaction
+                .GetProperty("id")
+                .GetInt32());
+
+        Assert.Equal(
+            "Salário atualizado",
+            updatedTransaction
+                .GetProperty("description")
+                .GetString());
+
+        Assert.Equal(
+            3500m,
+            updatedTransaction
+                .GetProperty("amount")
+                .GetDecimal());
+
+        Assert.Equal(
+            "income",
+            updatedTransaction
+                .GetProperty("type")
+                .GetString());
+
+        Assert.Equal(
+            newPersonId,
+            updatedTransaction
+                .GetProperty("person")
+                .GetProperty("id")
+                .GetInt32());
+
+        using var getResponse =
+            await _client.GetAsync(
+                $"/api/transactions/{transactionId}");
+
+        getResponse.EnsureSuccessStatusCode();
+
+        await using var getStream =
+            await getResponse.Content
+                .ReadAsStreamAsync();
+
+        using var getDocument =
+            await JsonDocument.ParseAsync(
+                getStream);
+
+        var persistedTransaction =
+            getDocument.RootElement;
+
+        Assert.Equal(
+            "Salário atualizado",
+            persistedTransaction
+                .GetProperty("description")
+                .GetString());
+
+        Assert.Equal(
+            newPersonId,
+            persistedTransaction
+                .GetProperty("person")
+                .GetProperty("id")
+                .GetInt32());
+    }
+
+    [Fact]
+    public async Task DeleteTransaction_ShouldRemoveTransactionAndKeepPerson()
+    {
+        var personId =
+            await CreatePersonAsync(
+                "Carlos da exclusão",
+                35);
+
+        var transactionId =
+            await CreateTransactionAsync(
+                "Conta a excluir",
+                125.90m,
+                "expense",
+                personId);
+
+        using var deleteResponse =
+            await _client.DeleteAsync(
+                $"/api/transactions/{transactionId}");
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            deleteResponse.StatusCode);
+
+        using var transactionResponse =
+            await _client.GetAsync(
+                $"/api/transactions/{transactionId}");
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            transactionResponse.StatusCode);
+
+        using var personResponse =
+            await _client.GetAsync(
+                $"/api/people/{personId}");
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            personResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_ShouldReturnUnprocessableEntity_WhenMinorReceivesIncome()
+    {
+        var adultPersonId =
+            await CreatePersonAsync(
+                "Adulto da edição",
+                35);
+
+        var minorPersonId =
+            await CreatePersonAsync(
+                "Menor da edição",
+                17);
+
+        var transactionId =
+            await CreateTransactionAsync(
+                "Despesa original",
+                100m,
+                "expense",
+                adultPersonId);
+
+        using var response =
+            await _client.PutAsJsonAsync(
+                $"/api/transactions/{transactionId}",
+                new
+                {
+                    description = "Receita inválida",
+                    amount = 500m,
+                    type = "income",
+                    personId = minorPersonId
+                });
+
+        Assert.Equal(
+            HttpStatusCode.UnprocessableEntity,
+            response.StatusCode);
+
+        using var persistedResponse =
+            await _client.GetAsync(
+                $"/api/transactions/{transactionId}");
+
+        persistedResponse.EnsureSuccessStatusCode();
+
+        await using var stream =
+            await persistedResponse.Content
+                .ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        var persistedTransaction =
+            document.RootElement;
+
+        Assert.Equal(
+            "Despesa original",
+            persistedTransaction
+                .GetProperty("description")
+                .GetString());
+
+        Assert.Equal(
+            "expense",
+            persistedTransaction
+                .GetProperty("type")
+                .GetString());
+
+        Assert.Equal(
+            adultPersonId,
+            persistedTransaction
+                .GetProperty("person")
+                .GetProperty("id")
+                .GetInt32());
     }
 }

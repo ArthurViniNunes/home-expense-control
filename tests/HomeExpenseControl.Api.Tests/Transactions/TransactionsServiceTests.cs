@@ -534,4 +534,278 @@ public sealed class TransactionsServiceTests
 
         return context;
     }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldPersistUpdatedTransaction_WhenRequestIsValid()
+    {
+        await using var connection =
+            await CreateOpenConnectionAsync();
+
+        await using var context =
+            await CreateContextAsync(connection);
+
+        var originalPerson = new Person(
+            "Carlos Souza",
+            35);
+
+        var newPerson = new Person(
+            "Maria Souza",
+            28);
+
+        context.People.AddRange(
+            originalPerson,
+            newPerson);
+
+        await context.SaveChangesAsync();
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            originalPerson);
+
+        context.Transactions.Add(transaction);
+
+        await context.SaveChangesAsync();
+
+        var service = new TransactionsService(context);
+
+        var request = new UpdateTransactionRequest
+        {
+            Description = "  Salário mensal  ",
+            Amount = 3500m,
+            Type = TransactionType.Income,
+            PersonId = newPerson.Id
+        };
+
+        var result = await service.UpdateAsync(
+            transaction.Id,
+            request,
+            CancellationToken.None);
+
+        context.ChangeTracker.Clear();
+
+        var persistedTransaction =
+            await context.Transactions
+                .Include(item => item.Person)
+                .SingleAsync();
+
+        Assert.Equal(
+            transaction.Id,
+            result.Id);
+
+        Assert.Equal(
+            "Salário mensal",
+            result.Description);
+
+        Assert.Equal(
+            3500m,
+            result.Amount);
+
+        Assert.Equal(
+            TransactionType.Income,
+            result.Type);
+
+        Assert.Equal(
+            newPerson.Id,
+            result.Person.Id);
+
+        Assert.Equal(
+            "Salário mensal",
+            persistedTransaction.Description);
+
+        Assert.Equal(
+            350000,
+            persistedTransaction.AmountInCents);
+
+        Assert.Equal(
+            TransactionType.Income,
+            persistedTransaction.Type);
+
+        Assert.Equal(
+            newPerson.Id,
+            persistedTransaction.PersonId);
+
+        Assert.Equal(
+            "Maria Souza",
+            persistedTransaction.Person.Name);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldThrowResourceNotFoundException_WhenTransactionDoesNotExist()
+    {
+        await using var connection =
+            await CreateOpenConnectionAsync();
+
+        await using var context =
+            await CreateContextAsync(connection);
+
+        var person = new Person(
+            "Carlos Souza",
+            35);
+
+        context.People.Add(person);
+
+        await context.SaveChangesAsync();
+
+        var service = new TransactionsService(context);
+
+        var request = new UpdateTransactionRequest
+        {
+            Description = "Conta atualizada",
+            Amount = 200m,
+            Type = TransactionType.Expense,
+            PersonId = person.Id
+        };
+
+        var exception =
+            await Assert.ThrowsAsync<ResourceNotFoundException>(
+                () => service.UpdateAsync(
+                    999,
+                    request,
+                    CancellationToken.None));
+
+        Assert.Contains(
+            "999",
+            exception.Message);
+
+        Assert.Empty(context.Transactions);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldThrowResourceNotFoundException_WhenPersonDoesNotExist()
+    {
+        await using var connection =
+            await CreateOpenConnectionAsync();
+
+        await using var context =
+            await CreateContextAsync(connection);
+
+        var person = new Person(
+            "Carlos Souza",
+            35);
+
+        context.People.Add(person);
+
+        await context.SaveChangesAsync();
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            person);
+
+        context.Transactions.Add(transaction);
+
+        await context.SaveChangesAsync();
+
+        var service = new TransactionsService(context);
+
+        var request = new UpdateTransactionRequest
+        {
+            Description = "Conta atualizada",
+            Amount = 200m,
+            Type = TransactionType.Expense,
+            PersonId = 999
+        };
+
+        var exception =
+            await Assert.ThrowsAsync<ResourceNotFoundException>(
+                () => service.UpdateAsync(
+                    transaction.Id,
+                    request,
+                    CancellationToken.None));
+
+        Assert.Contains(
+            "999",
+            exception.Message);
+
+        context.ChangeTracker.Clear();
+
+        var persistedTransaction =
+            await context.Transactions
+                .SingleAsync();
+
+        Assert.Equal(
+            "Conta de energia",
+            persistedTransaction.Description);
+
+        Assert.Equal(
+            12590,
+            persistedTransaction.AmountInCents);
+
+        Assert.Equal(
+            person.Id,
+            persistedTransaction.PersonId);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldRemoveOnlyTransaction_WhenTransactionExists()
+    {
+        await using var connection =
+            await CreateOpenConnectionAsync();
+
+        await using var context =
+            await CreateContextAsync(connection);
+
+        var person = new Person(
+            "Carlos Souza",
+            35);
+
+        context.People.Add(person);
+
+        await context.SaveChangesAsync();
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            person);
+
+        context.Transactions.Add(transaction);
+
+        await context.SaveChangesAsync();
+
+        var service = new TransactionsService(context);
+
+        await service.DeleteAsync(
+            transaction.Id,
+            CancellationToken.None);
+
+        Assert.Empty(
+            await context.Transactions.ToListAsync());
+
+        var persistedPerson =
+            await context.People.SingleAsync();
+
+        Assert.Equal(
+            person.Id,
+            persistedPerson.Id);
+
+        Assert.Equal(
+            "Carlos Souza",
+            persistedPerson.Name);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldThrowResourceNotFoundException_WhenTransactionDoesNotExist()
+    {
+        await using var connection =
+            await CreateOpenConnectionAsync();
+
+        await using var context =
+            await CreateContextAsync(connection);
+
+        var service = new TransactionsService(context);
+
+        var exception =
+            await Assert.ThrowsAsync<ResourceNotFoundException>(
+                () => service.DeleteAsync(
+                    999,
+                    CancellationToken.None));
+
+        Assert.Contains(
+            "999",
+            exception.Message);
+    }
 }
