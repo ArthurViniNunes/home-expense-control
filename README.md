@@ -17,6 +17,8 @@ O projeto foi desenvolvido de forma incremental. Cada commit representa uma evol
 ### Transações
 
 - cadastro de receitas e despesas;
+- edição de transações existentes;
+- exclusão direta com confirmação;
 - associação obrigatória a uma pessoa;
 - listagem responsiva;
 - bloqueio de receitas para menores de 18 anos;
@@ -26,7 +28,8 @@ O projeto foi desenvolvido de forma incremental. Cada commit representa uma evol
 - limpeza dos filtros aplicados;
 - estado específico para consultas sem resultados;
 - valores monetários formatados em reais;
-- ordenação das movimentações mais recentes primeiro.
+- ordenação das movimentações mais recentes primeiro;
+- manutenção dos filtros ativos após cadastro, edição e exclusão.
 
 ### Totais
 
@@ -277,9 +280,11 @@ DELETE /api/people/{id}
 ### Transações
 
 ```http
-POST /api/transactions
-GET  /api/transactions
-GET  /api/transactions/{id}
+POST   /api/transactions
+GET    /api/transactions
+GET    /api/transactions/{id}
+PUT    /api/transactions/{id}
+DELETE /api/transactions/{id}
 ```
 
 #### Filtros de transações
@@ -346,6 +351,31 @@ GET /api/totals
 }
 ```
 
+### Editar transação
+
+```http
+PUT /api/transactions/1
+```
+
+```json
+{
+  "description": "Conta de energia atualizada",
+  "amount": 160.75,
+  "type": "expense",
+  "personId": 1
+}
+```
+
+A edição reaplica todas as regras do cadastro e retorna a transação atualizada com `200 OK`.
+
+### Excluir transação
+
+```http
+DELETE /api/transactions/1
+```
+
+A exclusão direta retorna `204 No Content` e remove somente a transação. A pessoa vinculada permanece cadastrada.
+
 ### Filtrar transações
 
 Filtrar por pessoa:
@@ -387,7 +417,10 @@ Os limites de valor são inclusivos. Portanto, uma transação de 100.00 será r
 - toda transação deve pertencer a uma pessoa existente;
 - o valor da transação deve ser maior que zero;
 - o valor pode possuir no máximo duas casas decimais;
-- menores de 18 anos podem registrar somente despesas;
+- menores de 18 anos podem possuir somente despesas;
+- as regras de cadastro são reaplicadas integralmente durante a edição;
+- uma edição inválida não altera os dados anteriores da transação;
+- a exclusão direta remove somente a transação e preserva a pessoa;
 - ao excluir uma pessoa, suas transações são excluídas automaticamente;
 - pessoas sem transações aparecem nos totais com valores zerados;
 - os filtros de transações são opcionais e podem ser combinados;
@@ -430,6 +463,8 @@ As respostas de erro seguem o padrão `ProblemDetails`.
 | Situação | Status |
 |---|---:|
 | Dados inválidos | `400 Bad Request` |
+| Atualização concluída | `200 OK` |
+| Exclusão concluída | `204 No Content` |
 | Recurso não encontrado | `404 Not Found` |
 | Regra de negócio violada | `422 Unprocessable Entity` |
 | Erro inesperado | `500 Internal Server Error` |
@@ -484,4 +519,7 @@ http://localhost:5079/scalar
 - filtros executados no banco de dados por composição de consultas;
 - comparações monetárias realizadas em centavos inteiros;
 - validação dos filtros protegida tanto no front-end quanto no back-end;
-- filtros da interface refletidos diretamente nos parâmetros da API.
+- filtros da interface refletidos diretamente nos parâmetros da API;
+- validações monetárias e de negócio compartilhadas entre cadastro e edição;
+- atualização e exclusão recarregando a listagem com os filtros ativos;
+- operações destrutivas protegidas por confirmação explícita.

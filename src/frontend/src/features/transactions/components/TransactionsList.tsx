@@ -23,10 +23,24 @@ import { cn } from '@/lib/utils'
 import type {
   Transaction,
   TransactionType,
+  UpdateTransactionInput,
 } from '../transactionTypes'
+
+import type { Person } from '@/features/people/peopleTypes'
+
+import { TransactionDeleteDialog } from './TransactionDeleteDialog'
+import { TransactionEditDialog } from './TransactionEditDialog'
 
 interface TransactionsListProps {
   transactions: Transaction[]
+  people: Person[]
+  updatingTransactionId: number | null
+  deletingTransactionId: number | null
+  onUpdate: (
+    id: number,
+    input: UpdateTransactionInput,
+  ) => Promise<Transaction>
+  onDelete: (id: number) => Promise<void>
 }
 
 const currencyFormatter = new Intl.NumberFormat(
@@ -105,6 +119,11 @@ function EmptyTransactions() {
 
 function DesktopTransactionsTable({
   transactions,
+  people,
+  updatingTransactionId,
+  deletingTransactionId,
+  onUpdate,
+  onDelete,
 }: TransactionsListProps) {
   return (
     <div className="hidden overflow-hidden rounded-xl border md:block">
@@ -116,6 +135,9 @@ function DesktopTransactionsTable({
             <TableHead>Tipo</TableHead>
             <TableHead className="text-right">
               Valor
+            </TableHead>
+            <TableHead className="w-24 text-right">
+              Ações
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -173,6 +195,29 @@ function DesktopTransactionsTable({
                     transaction.amount,
                   )}
                 </TableCell>
+
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <TransactionEditDialog
+                      transaction={transaction}
+                      people={people}
+                      isUpdating={
+                        updatingTransactionId ===
+                        transaction.id
+                      }
+                      onUpdate={onUpdate}
+                    />
+
+                    <TransactionDeleteDialog
+                      transaction={transaction}
+                      isDeleting={
+                        deletingTransactionId ===
+                        transaction.id
+                      }
+                      onDelete={onDelete}
+                    />
+                  </div>
+                </TableCell>
               </TableRow>
             )
           })}
@@ -184,6 +229,11 @@ function DesktopTransactionsTable({
 
 function MobileTransactionsCards({
   transactions,
+  people,
+  updatingTransactionId,
+  deletingTransactionId,
+  onUpdate,
+  onDelete,
 }: TransactionsListProps) {
   return (
     <div className="grid gap-3 md:hidden">
@@ -241,6 +291,27 @@ function MobileTransactionsCards({
                   )}
                 </p>
               </div>
+
+              <div className="flex items-center justify-end gap-1 border-t pt-3">
+                <TransactionEditDialog
+                  transaction={transaction}
+                  people={people}
+                  isUpdating={
+                    updatingTransactionId ===
+                    transaction.id
+                  }
+                  onUpdate={onUpdate}
+                />
+
+                <TransactionDeleteDialog
+                  transaction={transaction}
+                  isDeleting={
+                    deletingTransactionId ===
+                    transaction.id
+                  }
+                  onDelete={onDelete}
+                />
+              </div>
             </CardContent>
           </Card>
         )
@@ -251,6 +322,11 @@ function MobileTransactionsCards({
 
 export function TransactionsList({
   transactions,
+  people,
+  updatingTransactionId,
+  deletingTransactionId,
+  onUpdate,
+  onDelete,
 }: TransactionsListProps) {
   if (transactions.length === 0) {
     return <EmptyTransactions />
@@ -260,10 +336,28 @@ export function TransactionsList({
     <>
       <DesktopTransactionsTable
         transactions={transactions}
+        people={people}
+        updatingTransactionId={
+          updatingTransactionId
+        }
+        deletingTransactionId={
+          deletingTransactionId
+        }
+        onUpdate={onUpdate}
+        onDelete={onDelete}
       />
 
       <MobileTransactionsCards
         transactions={transactions}
+        people={people}
+        updatingTransactionId={
+          updatingTransactionId
+        }
+        deletingTransactionId={
+          deletingTransactionId
+        }
+        onUpdate={onUpdate}
+        onDelete={onDelete}
       />
     </>
   )

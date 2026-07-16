@@ -21,6 +21,7 @@ import type {
   CreateTransactionInput,
   Transaction,
   TransactionFilters as TransactionFiltersValue,
+  UpdateTransactionInput,
 } from '../transactionTypes'
 import { useTransactions } from '../useTransactions'
 import { TransactionForm } from './TransactionForm'
@@ -40,6 +41,10 @@ export function TransactionsSection() {
     applyFilters,
     clearFilters,
     createTransaction,
+    updatingTransactionId,
+    deletingTransactionId,
+    updateTransaction,
+    deleteTransaction,
   } = useTransactions()
 
   async function handleCreate(
@@ -61,6 +66,56 @@ export function TransactionsSection() {
           description: getApiErrorMessage(
             error,
             'Verifique os dados e tente novamente.',
+          ),
+        },
+      )
+
+      throw error
+    }
+  }
+
+  async function handleUpdate(
+    id: number,
+    input: UpdateTransactionInput,
+  ): Promise<Transaction> {
+    try {
+      const updatedTransaction =
+        await updateTransaction(id, input)
+
+      toast.success('Transação atualizada', {
+        description: `${updatedTransaction.description} foi atualizada com sucesso.`,
+      })
+
+      return updatedTransaction
+    } catch (error) {
+      toast.error(
+        'Não foi possível atualizar a transação',
+        {
+          description: getApiErrorMessage(
+            error,
+            'Verifique os dados e tente novamente.',
+          ),
+        },
+      )
+
+      throw error
+    }
+  }
+
+  async function handleDelete(
+    id: number,
+  ): Promise<void> {
+    try {
+      await deleteTransaction(id)
+
+      toast.success('Transação excluída')
+    } catch (error) {
+      toast.error(
+        'Não foi possível excluir a transação',
+        {
+          description: getApiErrorMessage(
+            error,
+            'Tente novamente em alguns instantes.',
           ),
         },
       )
@@ -217,6 +272,15 @@ export function TransactionsSection() {
           ) : (
             <TransactionsList
               transactions={transactions}
+              people={people}
+              updatingTransactionId={
+                updatingTransactionId
+              }
+              deletingTransactionId={
+                deletingTransactionId
+              }
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
             />
           )}
         </CardContent>
@@ -274,8 +338,8 @@ function TransactionsListSkeleton() {
       aria-label="Carregando transações"
     >
       <div className="hidden overflow-hidden rounded-xl border md:block">
-        <div className="grid grid-cols-[2fr_1.3fr_1fr_1fr] gap-4 border-b bg-muted/40 px-4 py-3">
-          {[1, 2, 3, 4].map((item) => (
+        <div className="grid grid-cols-[2fr_1.3fr_1fr_1fr_80px] gap-4 border-b bg-muted/40 px-4 py-3">
+          {[1, 2, 3, 4, 5].map((item) => (
             <Skeleton
               key={item}
               className="h-4 w-20"
@@ -283,10 +347,10 @@ function TransactionsListSkeleton() {
           ))}
         </div>
 
-        {[1, 2, 3, 4].map((item) => (
+        {[1, 2, 3, 4, 5].map((item) => (
           <div
             key={item}
-            className="grid grid-cols-[2fr_1.3fr_1fr_1fr] items-center gap-4 border-b px-4 py-4 last:border-b-0"
+            className="grid grid-cols-[2fr_1.3fr_1fr_1fr_80px] items-center gap-4 border-b px-4 py-4 last:border-b-0"
           >
             <div className="space-y-2">
               <Skeleton className="h-4 w-40" />
@@ -323,6 +387,11 @@ function TransactionsListSkeleton() {
             <div className="flex items-center justify-between border-t pt-4">
               <Skeleton className="h-8 w-28" />
               <Skeleton className="h-6 w-24" />
+            </div>
+
+            <div className="flex justify-end gap-1">
+              <Skeleton className="size-8 rounded-md" />
+              <Skeleton className="size-8 rounded-md" />
             </div>
           </div>
         ))}

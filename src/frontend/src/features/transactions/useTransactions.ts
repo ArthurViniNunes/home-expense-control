@@ -13,6 +13,7 @@ import type {
   CreateTransactionInput,
   Transaction,
   TransactionFilters,
+  UpdateTransactionInput,
 } from './transactionTypes'
 
 interface TransactionsData {
@@ -88,6 +89,16 @@ export function useTransactions() {
 
   const [isSubmitting, setIsSubmitting] =
     useState(false)
+
+  const [
+    updatingTransactionId,
+    setUpdatingTransactionId,
+  ] = useState<number | null>(null)
+
+  const [
+    deletingTransactionId,
+    setDeletingTransactionId,
+  ] = useState<number | null>(null)
 
   const [loadError, setLoadError] =
     useState<string | null>(null)
@@ -226,6 +237,84 @@ export function useTransactions() {
     }
   }
 
+  async function updateTransaction(
+    id: number,
+    input: UpdateTransactionInput,
+  ): Promise<Transaction> {
+    setUpdatingTransactionId(id)
+
+    try {
+      const updatedTransaction =
+        await transactionsApi.update(
+          id,
+          input,
+        )
+
+      /*
+      * A transação pode deixar de atender aos
+      * filtros atuais depois da edição.
+      *
+      * Por isso, recarregamos a consulta no
+      * servidor em vez de apenas substituir
+      * o item localmente.
+      */
+      try {
+        const refreshedTransactions =
+          await fetchTransactions(filters)
+
+        setTransactions(
+          refreshedTransactions,
+        )
+
+        setLoadError(null)
+      } catch (error) {
+        setLoadError(
+          getApiErrorMessage(
+            error,
+            'A transação foi atualizada, mas a listagem não pôde ser recarregada.',
+          ),
+        )
+      }
+
+      return updatedTransaction
+    } finally {
+      setUpdatingTransactionId(null)
+    }
+  }
+  async function deleteTransaction(
+    id: number,
+  ): Promise<void> {
+    setDeletingTransactionId(id)
+
+    try {
+      await transactionsApi.delete(id)
+
+      /*
+      * Recarrega os dados mantendo os filtros
+      * atualmente aplicados.
+      */
+      try {
+        const refreshedTransactions =
+          await fetchTransactions(filters)
+
+        setTransactions(
+          refreshedTransactions,
+        )
+
+        setLoadError(null)
+      } catch (error) {
+        setLoadError(
+          getApiErrorMessage(
+            error,
+            'A transação foi excluída, mas a listagem não pôde ser recarregada.',
+          ),
+        )
+      }
+    } finally {
+      setDeletingTransactionId(null)
+    }
+  }
+
   const hasActiveFilters =
     Object.values(filters).some(
       (value) => value !== undefined,
@@ -243,5 +332,9 @@ export function useTransactions() {
     applyFilters,
     clearFilters,
     createTransaction,
+    updateTransaction,
+    deleteTransaction,
+    updatingTransactionId,
+    deletingTransactionId,
   }
 }

@@ -49,9 +49,72 @@ public sealed class TransactionsService
         return MapToResponse(transaction, person);
     }
 
+    public async Task<TransactionResponse> UpdateAsync(
+        int id,
+        UpdateTransactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var transaction = await _dbContext.Transactions
+            .SingleOrDefaultAsync(
+                transaction => transaction.Id == id,
+                cancellationToken);
+
+        if (transaction is null)
+        {
+            throw new ResourceNotFoundException(
+                $"Não existe uma transação cadastrada com o identificador {id}.");
+        }
+
+        var person = await _dbContext.People
+            .SingleOrDefaultAsync(
+                person => person.Id == request.PersonId,
+                cancellationToken);
+
+        if (person is null)
+        {
+            throw new ResourceNotFoundException(
+                $"Não existe uma pessoa cadastrada com o identificador {request.PersonId}.");
+        }
+
+        transaction.Update(
+            request.Description ?? string.Empty,
+            request.Amount,
+            request.Type,
+            person);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        return MapToResponse(
+            transaction,
+            person);
+    }
+
+    public async Task DeleteAsync(
+            int id,
+            CancellationToken cancellationToken)
+    {
+        var transaction = await _dbContext.Transactions
+            .SingleOrDefaultAsync(
+                transaction => transaction.Id == id,
+                cancellationToken);
+
+        if (transaction is null)
+        {
+            throw new ResourceNotFoundException(
+                $"Não existe uma transação cadastrada com o identificador {id}.");
+        }
+
+        _dbContext.Transactions.Remove(transaction);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
+    }
     public async Task<IReadOnlyList<TransactionResponse>> ListAsync(
-    ListTransactionsQuery query,
-    CancellationToken cancellationToken)
+        ListTransactionsQuery query,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
 

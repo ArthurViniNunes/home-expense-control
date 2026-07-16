@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace HomeExpenseControl.Api.Features.Transactions;
 
 /// <summary>
-/// Disponibiliza operações para cadastro e consulta de transações.
+/// Disponibiliza operações para cadastro, consulta, atualização e exclusão de transações.
 /// </summary>
 [ApiController]
 [Route("api/transactions")]
@@ -66,6 +66,75 @@ public sealed class TransactionsController : ControllerBase
             nameof(GetById),
             new { id = transaction.Id },
             transaction);
+    }
+
+    /// <summary>
+    /// Atualiza uma transação existente.
+    /// </summary>
+    /// <remarks>
+    /// Todos os dados da transação devem ser informados.
+    ///
+    /// A pessoa responsável pode ser alterada, mas deve existir.
+    ///
+    /// Pessoas menores de 18 anos podem possuir somente despesas.
+    ///
+    /// O valor deve ser maior que zero e possuir no máximo duas casas
+    /// decimais.
+    /// </remarks>
+    /// <param name="id" example="1">
+    /// Identificador da transação.
+    /// </param>
+    /// <param name="request">
+    /// Novos dados da transação.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Token utilizado para cancelar a operação.
+    /// </param>
+    /// <returns>A transação atualizada.</returns>
+    /// <response code="200">
+    /// Transação atualizada com sucesso.
+    /// </response>
+    /// <response code="400">
+    /// O identificador ou os dados informados são inválidos.
+    /// </response>
+    /// <response code="404">
+    /// A transação ou a pessoa informada não existe.
+    /// </response>
+    /// <response code="422">
+    /// A atualização viola uma regra de negócio, como uma receita
+    /// vinculada a uma pessoa menor de idade.
+    /// </response>
+    [HttpPut("{id:int}")]
+    [EndpointName("UpdateTransaction")]
+    [ProducesResponseType(
+        typeof(TransactionResponse),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<TransactionResponse>> Update(
+        [FromRoute]
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
+        [FromBody] UpdateTransactionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var transaction =
+            await _transactionsService.UpdateAsync(
+                id,
+                request,
+                cancellationToken);
+
+        return Ok(transaction);
     }
 
     /// <summary>
@@ -173,5 +242,54 @@ public sealed class TransactionsController : ControllerBase
         }
 
         return Ok(transaction);
+    }
+
+    /// <summary>
+    /// Exclui uma transação.
+    /// </summary>
+    /// <remarks>
+    /// A exclusão remove somente a transação.
+    ///
+    /// A pessoa vinculada permanece cadastrada.
+    /// </remarks>
+    /// <param name="id" example="1">
+    /// Identificador da transação.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Token utilizado para cancelar a operação.
+    /// </param>
+    /// <response code="204">
+    /// Transação excluída com sucesso.
+    /// </response>
+    /// <response code="400">
+    /// O identificador é inválido.
+    /// </response>
+    /// <response code="404">
+    /// A transação não foi encontrada.
+    /// </response>
+    [HttpDelete("{id:int}")]
+    [EndpointName("DeleteTransaction")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+        typeof(ValidationProblemDetails),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ProblemDetails),
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        [FromRoute]
+        [Range(
+            1,
+            int.MaxValue,
+            ErrorMessage = "O identificador deve ser maior que zero.")]
+        int id,
+        CancellationToken cancellationToken)
+    {
+        await _transactionsService.DeleteAsync(
+            id,
+            cancellationToken);
+
+        return NoContent();
     }
 }

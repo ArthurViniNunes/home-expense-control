@@ -26,6 +26,7 @@ export interface CreateTransactionInput {
   personId: number
 }
 
+export type UpdateTransactionInput = CreateTransactionInput 
 export interface TransactionFilters {
   personId?: number
   ageGroup?: TransactionAgeGroup

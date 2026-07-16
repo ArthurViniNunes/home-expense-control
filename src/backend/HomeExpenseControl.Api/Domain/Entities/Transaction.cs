@@ -34,6 +34,39 @@ public sealed class Transaction
         PersonId = person.Id;
     }
 
+    public void Update(
+        string description,
+        decimal amount,
+        TransactionType type,
+        Person person)
+    {
+        ArgumentNullException.ThrowIfNull(person);
+
+        /*
+        * Todas as validações ocorrem antes das atribuições.
+        * Assim, a entidade não fica parcialmente alterada
+        * caso alguma regra seja violada.
+        */
+        var normalizedDescription =
+            ValidateAndNormalizeDescription(description);
+
+        var amountInCents =
+            ValidateAndConvertAmount(amount);
+
+        var validatedType =
+            ValidateType(type);
+
+        ValidateMinorRestriction(
+            person,
+            validatedType);
+
+        Description = normalizedDescription;
+        AmountInCents = amountInCents;
+        Type = validatedType;
+        Person = person;
+        PersonId = person.Id;
+    }
+
     public int Id { get; private set; }
 
     public string Description { get; private set; } = string.Empty;

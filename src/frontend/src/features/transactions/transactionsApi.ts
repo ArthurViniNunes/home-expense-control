@@ -1,8 +1,9 @@
-import { httpClient } from '../../services/httpClient'
+import { httpClient } from '@/services/httpClient'
 import type {
   CreateTransactionInput,
   Transaction,
   TransactionFilters,
+  UpdateTransactionInput,
 } from './transactionTypes'
 
 function buildTransactionsQuery(
@@ -80,6 +81,31 @@ export const transactionsApi = {
     >(
       '/api/transactions',
       input,
+      signal,
+    )
+  },
+
+  update(
+    id: number,
+    input: UpdateTransactionInput,
+    signal?: AbortSignal,
+  ) {
+    return httpClient.put<
+      Transaction,
+      UpdateTransactionInput
+    >(
+      `/api/transactions/${id}`,
+      input,
+      signal,
+    )
+  },
+
+  delete(
+    id: number,
+    signal?: AbortSignal,
+  ) {
+    return httpClient.delete(
+      `/api/transactions/${id}`,
       signal,
     )
   },

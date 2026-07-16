@@ -48,6 +48,8 @@ A interface permite:
 
 - cadastrar e excluir pessoas;
 - registrar receitas e despesas;
+- editar transações existentes;
+- excluir transações diretamente com confirmação;
 - impedir visualmente receitas para menores de idade;
 - listar transações;
 - filtrar transações por pessoa, faixa etária, tipo e faixa de valor;
@@ -139,7 +141,7 @@ Contém os conceitos centrais de negócio:
 - `Transaction`;
 - `TransactionType`.
 
-As entidades possuem setters privados e validam os dados necessários para impedir a criação de estados inválidos.
+As entidades possuem setters privados e validam os dados necessários para impedir a criação ou atualização de estados inválidos.
 
 Exemplos de regras protegidas no domínio:
 
@@ -149,7 +151,8 @@ Exemplos de regras protegidas no domínio:
 - valor positivo;
 - limite de duas casas decimais;
 - tipo de transação válido;
-- proibição de receitas para menores de idade.
+- proibição de receitas para menores de idade;
+- atualização integral da transação somente após a validação dos novos dados.
 
 ### 4.3 Features
 
@@ -171,6 +174,8 @@ Responsável por:
 Responsável por:
 
 - cadastrar transações;
+- editar transações;
+- excluir transações diretamente;
 - listar transações;
 - consultar uma transação pelo identificador;
 - verificar a existência da pessoa vinculada;
@@ -181,6 +186,8 @@ Responsável por:
 - combinar filtros por meio da composição progressiva de consultas;
 - executar os filtros diretamente no banco de dados;
 - comparar os limites monetários utilizando centavos inteiros;
+- reaplicar as regras de negócio durante a edição;
+- preservar a pessoa e suas demais transações na exclusão direta;
 - devolver uma lista vazia quando nenhuma transação corresponde aos filtros.
 
 #### Totals
@@ -332,7 +339,12 @@ export interface CreateTransactionInput {
   type: 'expense' | 'income'
   personId: number
 }
+
+export type UpdateTransactionInput =
+  CreateTransactionInput
 ```
+
+No back-end, a edição utiliza o contrato `UpdateTransactionRequest`, mantendo o formato público equivalente ao cadastro e permitindo que as validações sejam documentadas separadamente no OpenAPI.
 
 ### 8.1 Contrato dos filtros de transações
 
@@ -455,12 +467,16 @@ O projeto utiliza:
 - enum textual para transações;
 - números estritos;
 - transformer de schema;
-- testes automatizados do contrato OpenAPI.
+- testes automatizados do contrato OpenAPI;
 - documentação individual dos parâmetros dos filtros;
 - exemplos de filtros simples e combinados;
 - descrição dos valores `adult`, `minor`, `expense` e `income`;
 - indicação de que os limites monetários são inclusivos;
-- resposta `400 Bad Request` documentada para filtros inválidos.
+- resposta `400 Bad Request` documentada para filtros inválidos;
+- operações `PUT` e `DELETE` para transações;
+- schema `UpdateTransactionRequest`;
+- respostas `200`, `204`, `400`, `404` e `422` dos endpoints de gerenciamento;
+- ordem funcional das tags Pessoas, Transações e Totais.
 
 Rotas de desenvolvimento:
 
@@ -504,9 +520,11 @@ DELETE /api/people/{id}
 ### Transações
 
 ```http
-POST /api/transactions
-GET  /api/transactions
-GET  /api/transactions/{id}
+POST   /api/transactions
+GET    /api/transactions
+GET    /api/transactions/{id}
+PUT    /api/transactions/{id}
+DELETE /api/transactions/{id}
 ```
 
 A listagem aceita filtros opcionais:
@@ -568,7 +586,9 @@ Exemplos:
 - idade negativa;
 - valor inválido;
 - tipo inválido;
-- receita para menor de idade.
+- receita para menor de idade;
+- atualização válida;
+- preservação do estado anterior quando uma atualização é rejeitada.
 
 ### 13.2 Testes de serviço e persistência
 
@@ -578,6 +598,9 @@ Exemplos:
 
 - persistência de pessoas;
 - persistência de transações;
+- atualização de transações;
+- troca da pessoa vinculada;
+- exclusão direta preservando a pessoa;
 - ordenação;
 - consulta por identificador;
 - exclusão em cascata;
@@ -603,7 +626,10 @@ Exemplos:
 - `personId` representado somente como inteiro;
 - `TransactionType` representado como string;
 - valores permitidos `expense` e `income`;
-- presença dos endpoints esperados no OpenAPI.
+- presença dos endpoints esperados no OpenAPI;
+- documentação de `PUT /api/transactions/{id}`;
+- documentação de `DELETE /api/transactions/{id}`;
+- schema `UpdateTransactionRequest`;
 - validação dos parâmetros da query string;
 - rejeição de faixa etária inválida;
 - rejeição de tipo inválido;
@@ -655,10 +681,13 @@ src/frontend/src/
 │   │   └── usePeople.ts
 │   ├── transactions/
 │   │   ├── components/
+│   │   │   ├── TransactionDeleteDialog.tsx
+│   │   │   ├── TransactionEditDialog.tsx
 │   │   │   ├── TransactionFilters.tsx
 │   │   │   ├── TransactionForm.tsx
 │   │   │   ├── TransactionsList.tsx
 │   │   │   └── TransactionsSection.tsx
+│   │   ├── transactionFormUtils.ts
 │   │   ├── transactionsApi.ts
 │   │   ├── transactionTypes.ts
 │   │   └── useTransactions.ts
@@ -745,7 +774,10 @@ Responsável por:
 
 - seleção da pessoa;
 - cadastro de receita ou despesa;
+- edição dos dados da transação em diálogo;
+- exclusão direta com confirmação;
 - entrada e formatação de valores;
+- validações compartilhadas entre cadastro e edição;
 - restrição visual de receita para menores;
 - listagem responsiva das transações;
 - seleção dos filtros disponíveis;
@@ -753,12 +785,18 @@ Responsável por:
 - montagem dos parâmetros da query string;
 - aplicação e limpeza dos filtros;
 - manutenção dos filtros durante a atualização manual;
-- recarregamento da lista após o cadastro de uma transação;
+- recarregamento da lista após cadastro, edição ou exclusão;
+- remoção automática da interface quando uma edição deixa de atender aos filtros ativos;
+- estados de carregamento individuais durante edição e exclusão;
 - estado específico para filtros sem correspondência.
 
 O componente `TransactionFilters.tsx` concentra a interface e as validações iniciais dos filtros.
 
-O cliente `transactionsApi.ts` utiliza `URLSearchParams` para enviar somente os parâmetros que foram preenchidos.
+O arquivo `transactionFormUtils.ts` centraliza a leitura, a formatação e as validações compartilhadas pelos formulários de cadastro e edição.
+
+Os componentes `TransactionEditDialog.tsx` e `TransactionDeleteDialog.tsx` isolam os fluxos de alteração e confirmação de exclusão.
+
+O cliente `transactionsApi.ts` utiliza `URLSearchParams` para enviar somente os parâmetros que foram preenchidos e expõe operações de criação, atualização e exclusão.
 
 O hook `useTransactions` mantém os filtros efetivamente aplicados e solicita novamente os dados sempre que eles são aplicados, removidos ou atualizados.
 
@@ -784,6 +822,7 @@ O cliente HTTP centraliza:
 - serialização JSON;
 - leitura das respostas;
 - tratamento de respostas sem conteúdo;
+- requisições `GET`, `POST`, `PUT` e `DELETE`;
 - conversão de erros da API.
 
 Os erros seguem o contrato `ProblemDetails` retornado pelo back-end.
@@ -805,13 +844,14 @@ Os hooks são responsáveis por:
 - carregamento inicial;
 - atualização manual;
 - estado de envio;
+- estados individuais de edição e exclusão;
 - erros de comunicação;
 - atualização local após operações bem-sucedidas;
 - cancelamento de requisições quando o componente é desmontado.
 - armazenamento dos filtros efetivamente aplicados;
 - atualização dos dados preservando os filtros ativos;
 - limpeza dos filtros;
-- recarregamento da listagem após novas transações;
+- recarregamento da listagem após criação, edição ou exclusão de transações;
 
 ### 14.6 Navegação
 
@@ -838,6 +878,7 @@ Entre os componentes adotados estão:
 - tabelas;
 - badges;
 - abas;
+- diálogos de edição;
 - diálogos de confirmação;
 - skeletons;
 - notificações.
@@ -864,8 +905,9 @@ A interface apresenta:
 - mensagens de erro;
 - botões de nova tentativa;
 - notificações com Sonner;
-- confirmação antes da exclusão de uma pessoa;
-- indicadores visuais durante operações assíncronas.
+- confirmação antes da exclusão de uma pessoa ou transação;
+- indicadores visuais durante operações assíncronas;
+- mensagens de erro dentro dos diálogos de edição e exclusão.
 - indicação da quantidade de resultados filtrados;
 - estado vazio específico para consultas sem correspondência;
 - botão para limpar filtros;

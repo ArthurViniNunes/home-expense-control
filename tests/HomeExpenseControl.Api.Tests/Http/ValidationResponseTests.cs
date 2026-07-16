@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net.Http.Json;
 
 namespace HomeExpenseControl.Api.Tests.Http;
 
@@ -258,5 +259,149 @@ public sealed class ValidationResponseTests
             error =>
                 error.GetString() ==
                 "O valor mínimo não pode ser maior que o valor máximo.");
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_ShouldReturnBadRequest_WhenIdIsInvalid()
+    {
+        using var response =
+            await _client.PutAsJsonAsync(
+                "/api/transactions/0",
+                new
+                {
+                    description = "Conta atualizada",
+                    amount = 200m,
+                    type = "expense",
+                    personId = 1
+                });
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        await using var stream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        var errors = document.RootElement
+            .GetProperty("errors");
+
+        Assert.True(
+            errors.TryGetProperty(
+                "id",
+                out var idErrors));
+
+        Assert.Equal(
+            "O identificador deve ser maior que zero.",
+            idErrors[0].GetString());
+    }
+
+    [Fact]
+    public async Task DeleteTransaction_ShouldReturnBadRequest_WhenIdIsInvalid()
+    {
+        using var response =
+            await _client.DeleteAsync(
+                "/api/transactions/0");
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        await using var stream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        var idErrors = document.RootElement
+            .GetProperty("errors")
+            .GetProperty("id");
+
+        Assert.Equal(
+            "O identificador deve ser maior que zero.",
+            idErrors[0].GetString());
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_ShouldReturnBadRequest_WhenBodyIsInvalid()
+    {
+        using var response =
+            await _client.PutAsJsonAsync(
+                "/api/transactions/1",
+                new
+                {
+                    description = "",
+                    amount = 0,
+                    type = "expense",
+                    personId = 0
+                });
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        await using var stream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        var errors = document.RootElement
+            .GetProperty("errors");
+
+        Assert.True(
+            errors.TryGetProperty(
+                "description",
+                out _));
+
+        Assert.True(
+            errors.TryGetProperty(
+                "amount",
+                out _));
+
+        Assert.True(
+            errors.TryGetProperty(
+                "personId",
+                out _));
+    }
+
+    [Fact]
+    public async Task UpdateTransaction_ShouldReturnBadRequest_WhenTypeIsNumeric()
+    {
+        using var response =
+            await _client.PutAsJsonAsync(
+                "/api/transactions/1",
+                new
+                {
+                    description = "Conta atualizada",
+                    amount = 200m,
+                    type = 1,
+                    personId = 1
+                });
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
+
+        await using var stream =
+            await response.Content.ReadAsStreamAsync();
+
+        using var document =
+            await JsonDocument.ParseAsync(stream);
+
+        var errors = document.RootElement
+            .GetProperty("errors");
+
+        Assert.True(
+            errors.TryGetProperty(
+                "type",
+                out var typeErrors));
+
+        Assert.Equal(
+            "O tipo deve ser 'expense' para despesa " +
+            "ou 'income' para receita.",
+            typeErrors[0].GetString());
     }
 }

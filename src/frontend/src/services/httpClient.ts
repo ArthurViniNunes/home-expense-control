@@ -96,6 +96,18 @@ export const httpClient = {
     })
   },
 
+  put<TResponse, TBody>(
+    path: string,
+    body: TBody,
+    signal?: AbortSignal,
+  ) {
+    return request<TResponse>(path, {
+      method: 'PUT',
+      body,
+      signal,
+    })
+  },
+
   delete(path: string, signal?: AbortSignal) {
     return request<void>(path, {
       method: 'DELETE',

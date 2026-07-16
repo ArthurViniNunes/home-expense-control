@@ -179,4 +179,146 @@ public sealed class TransactionTests
                 TransactionType.Expense,
                 null!));
     }
+
+    [Fact]
+    public void Update_ShouldReplaceTransactionData_WhenValuesAreValid()
+    {
+        var originalPerson = new Person(
+            "Carlos Souza",
+            35);
+
+        var newPerson = new Person(
+            "Maria Souza",
+            28);
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            originalPerson);
+
+        transaction.Update(
+            "Salário mensal",
+            3500m,
+            TransactionType.Income,
+            newPerson);
+
+        Assert.Equal(
+            "Salário mensal",
+            transaction.Description);
+
+        Assert.Equal(
+            3500m,
+            transaction.Amount);
+
+        Assert.Equal(
+            TransactionType.Income,
+            transaction.Type);
+
+        Assert.Same(
+            newPerson,
+            transaction.Person);
+    }
+
+    [Fact]
+    public void Update_ShouldNormalizeDescription()
+    {
+        var person = new Person(
+            "Carlos Souza",
+            35);
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            person);
+
+        transaction.Update(
+            "  Conta de internet  ",
+            150m,
+            TransactionType.Expense,
+            person);
+
+        Assert.Equal(
+            "Conta de internet",
+            transaction.Description);
+    }
+
+    [Fact]
+    public void Update_ShouldKeepOriginalState_WhenMinorIncomeIsRejected()
+    {
+        var adult = new Person(
+            "Carlos Souza",
+            35);
+
+        var minor = new Person(
+            "Pedro Souza",
+            17);
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            adult);
+
+        Assert.Throws<BusinessRuleException>(
+            () => transaction.Update(
+                "Mesada",
+                500m,
+                TransactionType.Income,
+                minor));
+
+        Assert.Equal(
+            "Conta de energia",
+            transaction.Description);
+
+        Assert.Equal(
+            125.90m,
+            transaction.Amount);
+
+        Assert.Equal(
+            TransactionType.Expense,
+            transaction.Type);
+
+        Assert.Same(
+            adult,
+            transaction.Person);
+    }
+
+    [Fact]
+    public void Update_ShouldKeepOriginalState_WhenAmountHasMoreThanTwoDecimalPlaces()
+    {
+        var person = new Person(
+            "Carlos Souza",
+            35);
+
+        var transaction = new Transaction(
+            "Conta de energia",
+            125.90m,
+            TransactionType.Expense,
+            person);
+
+        Assert.Throws<ArgumentException>(
+            () => transaction.Update(
+                "Conta atualizada",
+                150.999m,
+                TransactionType.Expense,
+                person));
+
+        Assert.Equal(
+            "Conta de energia",
+            transaction.Description);
+
+        Assert.Equal(
+            125.90m,
+            transaction.Amount);
+
+        Assert.Equal(
+            TransactionType.Expense,
+            transaction.Type);
+
+        Assert.Same(
+            person,
+            transaction.Person);
+    }
 }
