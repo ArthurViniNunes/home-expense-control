@@ -113,8 +113,8 @@ public sealed class TransactionsService
             cancellationToken);
     }
     public async Task<IReadOnlyList<TransactionResponse>> ListAsync(
-    ListTransactionsQuery query,
-    CancellationToken cancellationToken)
+        ListTransactionsQuery query,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
 
