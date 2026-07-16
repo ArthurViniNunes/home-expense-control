@@ -362,11 +362,6 @@ function TransactionsListSkeleton() {
               <Skeleton className="h-4 w-24" />
             </div>
 
-            <div className="flex justify-end gap-1">
-              <Skeleton className="size-8 rounded-md" />
-              <Skeleton className="size-8 rounded-md" />
-            </div>
-
             <Skeleton className="h-6 w-20 rounded-full" />
 
             <Skeleton className="ml-auto h-6 w-24" />
@@ -392,6 +387,11 @@ function TransactionsListSkeleton() {
             <div className="flex items-center justify-between border-t pt-4">
               <Skeleton className="h-8 w-28" />
               <Skeleton className="h-6 w-24" />
+            </div>
+
+            <div className="flex justify-end gap-1">
+              <Skeleton className="size-8 rounded-md" />
+              <Skeleton className="size-8 rounded-md" />
             </div>
           </div>
         ))}
